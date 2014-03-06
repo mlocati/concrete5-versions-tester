@@ -1,0 +1,75 @@
+body {
+	padding-top: 60px;
+}
+.container-mine {
+  padding-right: 15px;
+  padding-left: 15px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+#working {
+	cursor: wait;
+	position: fixed;
+	left: 0;
+	width: 100%;
+	top: 0;
+	height: 100%;
+	z-index: 32500;
+	background-color:rgba(255, 255, 255, .4);
+}
+#working>div {
+	left: 50%;
+	top: 50%;
+	position:absolute;
+}
+#working>div>div {
+	position: relative;
+	left: -50%;
+	top: -50%;
+}
+#working-text {
+	max-width: 350px;
+	text-align: center;
+}
+
+#result {
+	margin-left: 10px;
+	margin-right: 10px;
+}
+
+table.result-classes thead tr th {
+	text-align: center;
+}
+table.result-classes tbody tr td {
+	text-align: center;
+}
+table.result-classes td.class-name, table.result-classes td.method-name {
+	text-align: left;
+	line-height: 19px;
+}
+table.result-classes .class-name, table.result-classes .method-name, table.result-classes .method-modifiers, table.result-classes .method-parameters  {
+	font-family: Consolas, Courier, "Courier New", monospace;
+	font-size: 13px;
+}
+table.result-classes .method-modifiers {
+	font-weight: normal;
+	margin-right: 7px;
+}
+table.result-classes .method-parameters {
+	font-weight: normal;
+}
+
+table.result-classes .method-flavor {
+	text-align: left;
+	font-weight: bold;
+}
+table.result-classes td div .method-modifiers, table.result-classes td div .method-parameters {
+	margin-left: .5em;
+	font-weight: normal;
+}
+
+table.result-classes>tfoot td {
+	text-align: right;
+	font-size: 10px;
+}
