@@ -170,7 +170,6 @@ class _C5VT_ {
 				on duplicate key update
 					cValue = ' . self::escape($js) . '
 		');
-		return $onNotFound;
 	}
 	public static function launchConcrete5($version) {
 		$dispatcher = false;
@@ -184,7 +183,7 @@ class _C5VT_ {
 			throw new Exception("Invalid version: '$version'");
 		}
 		define('DIR_BASE', realpath(_C5VT_VERSIONS_FOLDER . "/$version"));
-		define('CONFIG_FILE', realpath(dirname(__FILE__) . '/includes/configuration.runtime.php1'));
+		define('CONFIG_FILE', realpath(dirname(__FILE__) . '/includes/configuration.runtime.php'));
 		define('C5_ENVIRONMENT_ONLY', true);
 		require $dispatcher;
 	}
@@ -646,6 +645,7 @@ class _C5VT_ {
 		$rs->close();
 		return $result;
 	}
+	//ALTER TABLE `_C5VT_ConstantDefinition` ADD CONSTRAINT `FK__C5VT_ConstantDefinition__C5VT_Constant` FOREIGN KEY (`cdVersion`, `cdConstant`) REFERENCES `_C5VT_Constant` (`cVersion`, `cName`) ON UPDATE CASCADE ON DELETE CASCADE;
 	public static function getConstants($version) {
 		if($version !== true) {
 			if(!(is_string($version) && in_array($version, _C5VT_::getVersions()))) {
@@ -667,11 +667,11 @@ class _C5VT_ {
 					natcasesort($constantNames);
 					foreach($constantNames as $constantName) {
 						if(strpos($constantName, '_C5VT_') !== 0) {
-							$constant = array('name' => $constantName);
-							$result[] = $constant;
+							$result[] = array('name' => $constantName, 'always' => true, 'definitions' => array());
 						}
 					}
 				}
+				self::getConstantsDefinitionLocations($result, realpath(_C5VT_VERSIONS_FOLDER . "/$version"), '');
 				$mi = self::getConnection();
 				if(!(@$mi->autocommit(false))) {
 					throw new Exception('Transaction failed to start at line ' . __LINE__);
@@ -679,8 +679,20 @@ class _C5VT_ {
 				try {
 					self::query('insert into _C5VT_ConstantsLoaded set clVersion = ' . self::escape($version));
 					foreach($result as $constant) {
-						$sql = 'insert into _C5VT_Constant set cVersion = ' . self::escape($version) . ', cName = ' . self::escape($constant['name']);
-						self::query($sql);
+						self::query('insert into _C5VT_Constant set cVersion = ' . self::escape($version) . ', cName = ' . self::escape($constant['name']) . ', cAlways = ' . ($constant['always'] ? '1' : '0'));
+						$sql = '';
+						foreach($constant['definitions'] as $definition) {
+							if(strlen($sql) == 0) {
+								$sql = 'insert into _C5VT_ConstantDefinition (cdVersion, cdConstant, cdFile, cdLine) values ';
+							}
+							else {
+								$sql .= ', ';
+							}
+							$sql .= '(' . self::escape($version) . ', ' . self::escape($constant['name']) . ', ' . self::escape($definition['file']) . ', ' . $definition['line'] . ')';
+						}
+						if(strlen($sql)) {
+							self::query($sql);
+						}
 					}
 					if(!(@$mi->commit())) {
 						throw new Exception('Transaction failed to commit at line ' . __LINE__);
@@ -698,47 +710,214 @@ class _C5VT_ {
 				return $result;
 			}
 		}
-		$result = array();
 		if($version === true) {
 			$rs = self::query('
 				select
 					cVersion,
-					cName
+					cName,
+					cAlways,
+					cdFile,
+					cdLine
 				from
 					_C5VT_Constant
+					left join _C5VT_ConstantDefinition on (_C5VT_Constant.cVersion = _C5VT_ConstantDefinition.cdVersion) and (_C5VT_Constant.cName = _C5VT_ConstantDefinition.cdConstant)
 				order by
 					cVersion,
-					cName
+					cName,
+					cdFile,
+					cdLine
 			', true);
 		}
 		else {
 			$rs = self::query('
 				select
-					cName
+					cName,
+					cAlways,
+					cdFile,
+					cdLine
 				from
 					_C5VT_Constant
-				order by
-					cName
+					left join _C5VT_ConstantDefinition on (_C5VT_Constant.cVersion = _C5VT_ConstantDefinition.cdVersion) and (_C5VT_Constant.cName = _C5VT_ConstantDefinition.cdConstant)
 				where
 					cVersion = ' . self::escape($version) . '
 				order by
-					cName
+					cName,
+					cdFile,
+					cdLine
 			', true);
 		}
+		$result = array();
+		$lastKey = null;
 		while($row = $rs->fetch_assoc()) {
-			$constant = array('name' => $row['cName']);
-			if($version === true) {
-				if(!array_key_exists($row['cVersion'], $result)) {
-					$result[$row['cVersion']] = array();
+			$key = $row['cName'] . (($version === true) ? '' : "@$version");
+			if(is_null($lastKey) || strcmp($lastKey, $key)) {
+				$key = $lastKey;
+				$constant = array('name' => $row['cName'], 'always' => empty($row['cAlways']) ? false : true, 'definitions' => array());
+				if($version === true) {
+					if(!array_key_exists($row['cVersion'], $result)) {
+						$result[$row['cVersion']] = array();
+					}
+					$result[$row['cVersion']][] = $constant;
 				}
-				$result[$row['cVersion']][] = $constant;
+				else {
+					$result[] = $constant;
+				}
 			}
-			else {
-				$result[] = $constant;
+			if(is_string($row['cdFile']) && strlen($row['cdFile'])) {
+				$definition = array('file' => $row['cdFile'], 'line' => @intval($row['cdLine']));
+				if($version === true) {
+					$result[$row['cVersion']][count($result[$row['cVersion']]) - 1]['definitions'][] = $definition;
+				}
+				else {
+					$result[count($result) - 1]['definitions'][] = $definition;
+				}
 			}
 		}
 		$rs->close();
 		return $result;
+	}
+	private static function getConstantsDefinitionLocations(&$constants, $folderAbs, $folderRel) {
+		$subFolders = array();
+		$phpFiles = array();
+		$hDir = @opendir($folderAbs);
+		if(!$hDir) {
+			throw new Exception("Unable to open '$folderAbs'");
+		}
+		try {
+			while(($item = readdir($hDir))) {
+				if(substr($item, 0, 1) === '.') {
+					continue;
+				}
+				$itemAbs = $folderAbs . "/$item";
+				if(is_dir($itemAbs)) {
+					$subFolders[] = $item;
+				}
+				elseif(preg_match('/.\\.php$/i', $item)) {
+					self::getConstantsDefinitionLocationsParser($constants, $itemAbs, ltrim("$folderRel/$item", '/'));
+				}
+			}
+		}
+		catch(Exception $x) {
+			closedir($hDir);
+			throw $x;
+		}
+		closedir($hDir);
+		foreach($subFolders as $subFolder) {
+			self::getConstantsDefinitionLocations($constants, $folderAbs . DIRECTORY_SEPARATOR . $subFolder, ltrim("$folderRel/$subFolder", '/'));
+		}
+	}
+	private static function getConstantsDefinitionLocationsParser(&$constants, $fileAbs, $fileRel) {
+		$phpCode = false;
+		if(@is_file($fileAbs) && is_readable($fileAbs)) {
+			$phpCode = @file_get_contents($fileAbs);
+		}
+		if($phpCode === false) {
+			throw new Exception('Error reading the file ' . $fileAbs);
+		}
+		$tokens = token_get_all($phpCode);
+		$n = count($tokens);
+		$found = array();
+		for($i = 0; $i < $n; $i++ ) {
+			if(is_array($tokens[$i])) {
+				switch($tokens[$i][0]) {
+					case T_STRING:
+						$text = strtolower($tokens[$i][1]);
+						switch($text) {
+							case 'define':
+								if(($i == 0) || ( !is_array($tokens[$i - 1])) || ($tokens[$i - 1][0] != T_OBJECT_OPERATOR)) {
+									$line = $tokens[$i][2];
+									$j = $i + 1;
+									// Skip whitespaces
+									while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+										$j++ ;
+									}
+									// Open parenthesis?
+									if(($j < $n) && ($tokens[$j] === '(')) {
+										$j++ ;
+										// Skip whitespaces
+										while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+											$j++ ;
+										}
+										// Constant string?
+										if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/^["\']\w+["\']$/', $tokens[$j][1])) {
+											$name = substr($tokens[$j][1], 1,  -1);
+											$j++ ;
+											// Skip whitespaces
+											while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+												$j++ ;
+											}
+											$add = false;
+											// Comma?
+											if(($j < $n) && ($tokens[$j] === ',')) {
+												$i = $j + 1;
+												$add = true;
+											}
+											if($add) {
+												if( !array_key_exists($name, $found)) {
+													$found[$name] = array();
+												}
+												$found[$name][] = array('file' => $fileRel, 'line' => $line);
+											}
+										}
+									}
+								}
+								break;
+							case 'config':
+								if(($i < ($n - 4)) && is_array($tokens[$i + 1]) && ($tokens[$i + 1][0] == T_DOUBLE_COLON) && is_array($tokens[$i + 2]) && ($tokens[$i + 2][0] == T_STRING) && (( !strcasecmp($tokens[$i + 2][1], 'getOrDefine')) || ( !strcasecmp($tokens[$i + 2][1], 'getAndDefine')))) {
+									$line = $tokens[$i][2];
+									$j = $i + 3;
+									// Skip whitespaces
+									while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+										$j++ ;
+									}
+									// Open parenthesis?
+									if(($j < $n) && ($tokens[$j] === '(')) {
+										$j++ ;
+										// Skip whitespaces
+										while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+											$j++ ;
+										}
+										// Constant string?
+										if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/^["\']\w+["\']$/', $tokens[$j][1])) {
+											$name = substr($tokens[$j][1], 1,  -1);
+											$j++ ;
+											// Skip whitespaces
+											while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+												$j++ ;
+											}
+											// Comma?
+											if(($j < $n) && ($tokens[$j] === ',')) {
+												$i = $j + 1;
+												if(!array_key_exists($name, $found)) {
+													$found[$name] = array();
+												}
+												$found[$name][] = array('file' => $fileRel, 'line' => $line);
+											}
+										}
+									}
+								}
+								break;
+						}
+						break;
+				}
+			}
+		}
+		if(empty($found)) {
+			return;
+		}
+		foreach($found as $name => $definitions) {
+			$add = true;
+			foreach(array_keys($constants) as $i) {
+				if(strcmp($name, $constants[$i]['name']) === 0) {
+					$constants[$i]['definitions'] = array_merge($constants[$i]['definitions'], $definitions);
+					$add = false;
+					break;
+				}
+			}
+			if($add) {
+				$constants[] = array('name' => $name, 'always' => false, 'definitions' => $definitions);
+			}
+		}
 	}
 	/**
 	* @param ReflectionParameter $p
