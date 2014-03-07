@@ -325,7 +325,6 @@ function showFlat(key) {
 					}
 					return true;
 				}
-				rxHideFiles = /^concrete\/libraries\/3rdparty\//i;
 			}
 			break;
 		case 'constants':
