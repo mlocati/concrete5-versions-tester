@@ -315,17 +315,49 @@ function showFlat(key) {
 			return a.toLowerCase() === b.toLowerCase();
 		};
 	}
-	var rxHideFiles = null;
+	var fnTester = function(f) { return true; };
 	switch(key) {
 		case 'functions':
-			if(!($('#options-flat-' + key).is(':checked'))) {
+			if(!($('#options-flat-' + key + '-3rdparty').is(':checked'))) {
+				fnTester = function(f) {
+					if(f.file && /^concrete\/libraries\/3rdparty\//i.test(f.file)) {
+						return false;
+					}
+					return true;
+				}
 				rxHideFiles = /^concrete\/libraries\/3rdparty\//i;
 			}
+			break;
+		case 'constants':
+			fnTester = function(f) {
+				var b;
+				if(fnTester.onlyAlways && !f.always) {
+					return false;
+				}
+				if(fnTester.skip3rdparty && f.definitions) {
+					b = null;
+					$.each(f.definitions, function(l) {
+						if(/^concrete\/libraries\/3rdparty\//i.test(this.file)) {
+							b = false;
+						}
+						else {
+							b = true;
+							return false;
+						}
+					});
+					if(b === false) {
+						return false;
+					}
+				}
+				return true;
+			};
+			fnTester.skip3rdparty = !($('#options-flat-' + key + '-3rdparty').is(':checked'));
+			fnTester.onlyAlways = !($('#options-flat-' + key + '-notalways').is(':checked'));
 			break;
 	}
 	$.each(flat[key], function(version, defs) {
 		$.each(defs, function(_, f) {
-			if(rxHideFiles && f.file && rxHideFiles.test(f.file)) {
+			if(!fnTester(f)) {
 				return;
 			}
 			var index = -1;
@@ -453,7 +485,7 @@ $(window.document).ready(function() {
 						}
 						$('#result').hide().empty();
 						$('.options-specific').hide();
-						$('#options-specific-' + def.key).show();
+						$('.options-specific-' + def.key).show();
 						if(onActivated) {
 							onActivated();
 						}
@@ -479,7 +511,7 @@ $(window.document).ready(function() {
 						addOption(def);
 						classes[def.key] = {loader: def.loader, list: result};
 						var $s, $l;
-						$('#options-form').append($l = $('<div class="form-group options-specific" id="options-specific-' + def.key + '" />')
+						$('#options-form').append($l = $('<div class="form-group options-specific options-specific-' + def.key + '" />')
 							.append($('<label for="options-class-' + def.key + '" class="col-sm-2 control-label" />').text(def.labelText))
 							.append($('<div class="col-sm-10" />')
 								.append($s = $('<select id="options-class-' + def.key + '"><option value="" selected></option></select>')
@@ -543,18 +575,47 @@ $(window.document).ready(function() {
 							return;
 						});
 					});
-					if(def.key === 'functions') {
-						$('#options-form').append($('<div class="form-group options-specific" id="options-specific-' + def.key + '" />')
-							.hide()
-							.append($('<label for="options-flat-' + def.key + '" class="col-sm-2 control-label" />').text('Show 3rd party functions'))
-							.append($('<div class="col-sm-10" />')
-								.append($('<input type="checkbox" id="options-flat-' + def.key + '" />')
-									.on('change', function() {
-										showFlat(def.key);
-									})
+					switch(def.key) {
+						case 'functions':
+							$('#options-form').append($('<div class="form-group options-specific options-specific-' + def.key + '" />')
+								.hide()
+								.append($('<label for="options-flat-' + def.key + '-3rdparty" class="col-sm-2 control-label" />').text('Show 3rd party functions'))
+								.append($('<div class="col-sm-10" />')
+									.append($('<input type="checkbox" id="options-flat-' + def.key + '-3rdparty" />')
+										.on('change', function() {
+											showFlat(def.key);
+										})
+									)
 								)
-							)
-						);
+							);
+							break;
+						case 'constants':
+							$('#options-form')
+								.append($('<div class="form-group options-specific options-specific-' + def.key + '" />')
+									.hide()
+									.append($('<label for="options-flat-' + def.key + '-3rdparty" class="col-sm-2 control-label" />').text('Show 3rd party constants'))
+									.append($('<div class="col-sm-10" />')
+										.append($('<input type="checkbox" id="options-flat-' + def.key + '-3rdparty" />')
+											.on('change', function() {
+												showFlat(def.key);
+											})
+										)
+									)
+								)
+								.append($('<div class="form-group options-specific options-specific-' + def.key + '" />')
+									.hide()
+									.append($('<label for="options-flat-' + def.key + '-notalways" class="col-sm-2 control-label" />').text('Show constants that may not be always defined'))
+									.append($('<div class="col-sm-10" />')
+										.append($('<input type="checkbox" id="options-flat-' + def.key + '-notalways" />')
+											.on('change', function() {
+												showFlat(def.key);
+											})
+										)
+									)
+								)
+							;
+							break;
+							
 					}
 					loadNext(i + 1, cb);
 					break;
