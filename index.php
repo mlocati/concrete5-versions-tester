@@ -45,7 +45,7 @@
 		</div>
 
 		<div id="result"></div>
-		
+
 		<div id="dialog-options-versions" class="modal fade" tabindex="-1">
 			<div class="modal-dialog modal-md">
 				<div class="modal-content">

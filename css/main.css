@@ -50,7 +50,7 @@ table.result-classes td.class-name, table.result-classes td.method-name {
 	text-align: left;
 	line-height: 19px;
 }
-table.result-classes .class-name, table.result-classes .method-name, table.result-classes .method-modifiers, table.result-classes .method-parameters  {
+table.result-classes .class-name, table.result-classes .method-name, table.result-classes .method-modifiers, table.result-classes .method-parameters {
 	font-family: Consolas, Courier, "Courier New", monospace;
 	font-size: 13px;
 }

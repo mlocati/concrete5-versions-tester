@@ -117,23 +117,6 @@ try {
 		case 'get-version-methods':
 			$result = _C5VT_::getMethods(_C5VT_::getString('category'), _C5VT_::getString('class'), _C5VT_::getString('version'));
 			break;
-			/*
-		case 'list-classes':
-			$result = _C5VT_::getClasses(_C5VT_::getString('category'));
-			break;
-		case 'list-methods':
-			$result = _C5VT_::getMethods(_C5VT_::getString('version'), _C5VT_::getString('category'), _C5VT_::getString('className'));
-			break;
-		case 'list-methods-alreadyparsed':
-			$result = _C5VT_::getMethods(true, _C5VT_::getString('category'), _C5VT_::getString('className'));
-			break;
-		case 'list-functions':
-			$result = _C5VT_::getFunctions(_C5VT_::getString('version'));
-			break;
-		case 'list-constants':
-			$result = _C5VT_::getConstants(_C5VT_::getString('version'));
-			break;
-		*/
 		default:
 			throw new Exception("Invalid action: '$action'");
 	}
