@@ -31,6 +31,12 @@ body {
 	text-align: center;
 }
 
+#options {
+	margin: 0 15px;
+}
+#options>.panel-body>.row>div:first-child {
+	max-width: 150px;
+}
 #dialog-options-versions ul {
 	list-style-type: none;
 }

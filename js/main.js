@@ -111,17 +111,108 @@ Version.configured = function() {
 };
 
 function Type(data) {
+	var me = this;
 	for(var k in data) {
-		this[k] = data[k];
+		me[k] = data[k];
 	}
-	Type.all.push(this);
+	$('#options-operations').append($('<label class="radio-inline" />')
+		.text(me.nameN)
+		.prepend($('<input type="radio" name="options-type" />')
+			.on('change', function() {
+				if(this.checked) {
+					me.activate();
+				}
+			})
+		)
+	);
+	Type.all.push(me);
 }
 Type.all = [];
-new Type({name1: 'constant', nameN: 'constants', handleMulti: 'constants', actionGetParsed: 'get-parsed-constants', actionGetUnparsed: 'get-version-constants'});
-new Type({name1: 'function', nameN: 'functions', handleMulti: 'functions', actionGetParsed: 'get-parsed-functions', actionGetUnparsed: 'get-version-constants'});
-new Type({name1: 'helper', nameN: 'helpers', handleMulti: 'helpers', actionGetParsed: 'get-parsed-classes', classCategory: 'helper', actionGetUnparsed: 'get-parsed-constants'});
-new Type({name1: 'library', nameN: 'libraries', handleMulti: 'libraries', actionGetParsed: 'get-parsed-classes', classCategory: 'library', actionGetUnparsed: 'get-parsed-constants'});
-new Type({name1: 'model', nameN: 'models', handleMulti: 'models', actionGetParsed: 'get-parsed-classes', classCategory: 'model', actionGetUnparsed: 'get-parsed-constants'});
+Type.prototype = {
+	activate: function() {
+		var me = this, $s;
+		$('#options .panel-body .type-specific').remove();
+		switch(me.handle) {
+			case 'helpers':
+			case 'libraries':
+			case 'models':
+				var $showClassesRow;
+				$('#options .panel-body').append($showClassesRow = $('<div class="row type-specific" />')
+					.append('<div class="col-md-2"><label>List</label></div>')
+					.append($('<div class="col-md-6" />')
+						.append($('<div class="radio"><label><input type="radio" name="show-methods" value="" checked> show all classes</label></div>'))
+						.append($('<div class="radio" />')
+							.append($('<label><input type="radio" name="show-methods" value="1"> show methods of </label>')
+								.append($('<span />')
+									.append($s = $('<select><option>asdasdaads asdas</option></select>'))
+								)
+							)
+						)
+					)
+				);
+				var $j = $s.chosen({width: '400px'});
+				var upd = function(view) {
+					$s.closest('span').css('visibility', $showClassesRow.find('input[name="show-methods"]:checked').val() ? '' : 'hidden');
+					if(view) {
+						me.view();
+					}
+				}
+				$showClassesRow.find('input[name="show-methods"]').on('change', function() {
+					if(this.checked) {
+						upd(true);
+					}
+				});
+				upd();
+				break;
+		}
+		switch(me.handle) {
+			case 'constants':
+			case 'functions':
+			case 'libraries':
+				$('#options .panel-body').append($('<div class="row type-specific" />')
+					.append('<div class="col-md-2"><label>3<sup>rd</sup> party</label></div>')
+					.append($('<div class="col-md-6" />')
+						.append($('<label class="checkbox-inline">show ' + me.nameN + ' defined by 3rd party components</label>')
+							.prepend($('<input type="checkbox" ' + (me.show3rdParty ? 'checked' : '') + ' />')
+								.on('click', function() {
+									me.show3rdParty = this.checked;
+									me.view();
+								})
+							)
+						)
+					)
+				);
+				break;
+		}
+		switch(me.handle) {
+			case 'constants':
+				$('#options .panel-body').append($('<div class="row type-specific" />')
+					.append('<div class="col-md-2"><label>Availability</label></div>')
+					.append($('<div class="col-md-6" />')
+						.append($('<label class="checkbox-inline">show ' + me.nameN + ' that may not be always defined</label>')
+							.prepend($('<input type="checkbox" ' + (me.showNotAlways ? 'checked' : '') + ' />')
+								.on('click', function() {
+									me.showNotAlways = this.checked;
+									me.view();
+								})
+							)
+						)
+					)
+				);
+				break;
+		}
+		Type.active = me;
+		me.view();
+	},
+	view: function() {
+		alert('view');
+	}
+};
+new Type({name1: 'constant', nameN: 'constants', handle: 'constants', actionGetParsed: 'get-parsed-constants', actionGetUnparsed: 'get-version-constants'});
+new Type({name1: 'function', nameN: 'functions', handle: 'functions', actionGetParsed: 'get-parsed-functions', actionGetUnparsed: 'get-version-constants'});
+new Type({name1: 'helper', nameN: 'helpers', handle: 'helpers', actionGetParsed: 'get-parsed-classes', classCategory: 'helper', actionGetUnparsed: 'get-parsed-constants'});
+new Type({name1: 'library', nameN: 'libraries', handle: 'libraries', actionGetParsed: 'get-parsed-classes', classCategory: 'library', actionGetUnparsed: 'get-parsed-constants'});
+new Type({name1: 'model', nameN: 'models', handle: 'models', actionGetParsed: 'get-parsed-classes', classCategory: 'model', actionGetUnparsed: 'get-parsed-constants'});
 
 function setWorking(html) {
 	if((typeof(html) == 'string') || (html === true)) {
@@ -202,8 +293,8 @@ $(window.document).ready(function() {
 			var type = Type.all[typeIndex];
 			var loadParsed = [], loadToBeParsed = [];
 			$.each(Version.all, function(_, version) {
-				if(version[type.handleMulti + 'Parsed']) {
-					if(!storage.has(type.handleMulti + '::' + version.code)) {
+				if(version[type.handle + 'Parsed']) {
+					if(!storage.has(type.handle + '::' + version.code)) {
 						loadParsed.push(version.code);
 					}
 				}
@@ -233,7 +324,7 @@ $(window.document).ready(function() {
 							load.data.category = type.classCategory;
 						}
 						else {
-							action = 'get-parsed-' + type.handleMulti;
+							action = 'get-parsed-' + type.handle;
 						}
 						process(action, load.data, false, function(ok, result) {
 							if(!ok) {
@@ -242,7 +333,7 @@ $(window.document).ready(function() {
 								return;
 							}
 							for(var version in result) {
-								storage.set(type.handleMulti + '::' + version, result[version]);
+								storage.set(type.handle + '::' + version, result[version]);
 							}
 							loadNext(loadIndex + 1);
 						});
@@ -254,7 +345,7 @@ $(window.document).ready(function() {
 							load.data.category = type.classCategory;
 						}
 						else {
-							action = 'get-version-' + type.handleMulti;
+							action = 'get-version-' + type.handle;
 						}
 						process(action, load.data, false, function(ok, result) {
 							if(!ok) {
@@ -262,7 +353,7 @@ $(window.document).ready(function() {
 								alert(result);
 								return;
 							}
-							storage.set(type.handleMulti + '::' + load.data.version, result);
+							storage.set(type.handle + '::' + load.data.version, result);
 							loadNext(loadIndex + 1);
 						});
 						break;
@@ -284,8 +375,8 @@ $(window.document).ready(function() {
 				});
 				storage.set('versions::order-descending', $('#options-versions-desc').is(':checked') ? true : null);
 				$('#dialog-options-versions').modal('hide');
-				if(viewer) {
-					viewer.view();
+				if(Type.active) {
+					Type.active.view();
 				}
 			});
 			$('.hide-until-ready').show();
