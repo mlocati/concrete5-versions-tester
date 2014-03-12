@@ -14,27 +14,27 @@
 			<div class="container">
 				<div class="navbar-header">
 					<a href="javascript:void(0)" class="navbar-brand">concrete5 versions tester</a>
-					<?php if(false) { ?>
-						<button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+					<div class="hide-until-ready">
+						<button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#top-menu">
 							<span class="sr-only">Toggle navigation</span>
 							<span class="icon-bar"></span>
 							<span class="icon-bar"></span>
 							<span class="icon-bar"></span>
 						</button>
-					<?php } ?>
+					</div>
 				</div>
-				<?php if(false) { ?>
-					<div class="collapse navbar-collapse">
+				<div class="hide-until-ready">
+					<div class="collapse navbar-collapse" id="top-menu">
 						<ul class="nav navbar-nav">
-							<li class="active"><a href="#">Home</a></li>
+							<li><a href="#" data-toggle="modal" data-target="#dialog-options-versions">Versions</a></li>
 						</ul>
 					</div>
-				<?php } ?>
+				</div>
 			</div>
 		</div>
 		<div class="container">
 			<div id="working"><div><div><div id="working-text" class="alert alert-info"></div></div></div></div>
-			<div id="options" class="hide">
+			<div id="options" class="hide-until-ready">
 				<form class="form-horizontal" role="form" id="options-form">
 					<div class="form-group">
 						<label class="col-sm-2 control-label">Operation</label>
@@ -43,7 +43,33 @@
 				</form>
 			</div>
 		</div>
+
 		<div id="result"></div>
+		
+		<div id="dialog-options-versions" class="modal fade" tabindex="-1">
+			<div class="modal-dialog modal-md">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal">&times;</button>
+						<h4 class="modal-title">Configure versions</h4>
+					</div>
+					<div class="modal-body">
+						<h5>View versions (<a href="javascript:void(0)" onclick="$('#options-versions-list input').prop('checked', false);">none</a> | <a href="javascript:void(0)" onclick="$('#options-versions-list input').prop('checked', true);">all</a>)</h5>
+						<ul id="options-versions-list"></ul>
+						<h5>Sorting</h5>
+						<ul>
+							<li><div class="radio-inline"><label><input type="radio" name="options-versions-sorting" id="options-versions-asc"> oldest &rarr; newest</label></div></li>
+							<li><div class="radio-inline"><label><input type="radio" name="options-versions-sorting" id="options-versions-desc"> newest &rarr; oldest</label></div></li>
+						</ul>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+						<button type="button" class="btn btn-primary" id="options-versions-apply">Apply</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<script src="js/jquery.min.js"></script>
 		<script src="js/bootstrap.min.js"></script>
 		<script src="js/chosen.jquery.min.js"></script>

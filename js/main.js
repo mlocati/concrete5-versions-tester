@@ -1,5 +1,6 @@
 (function(undefined) {
 "use strict";
+var viewer = null;
 
 var storage = (function() {
 	var ls = window.localStorage || null, local = {};
@@ -51,6 +52,12 @@ function Version(code, data) {
 	for(var k in data) {
 		this[k] = data[k];
 	}
+	$('#options-versions-list').append($('<li />')
+		.append($('<label />')
+			.text(' ' + this.code)
+			.prepend(this.$shown = $('<input type="checkbox" />'))
+		)
+	);
 	Version.all.push(this);
 }
 Version.all = [];
@@ -92,6 +99,18 @@ Version.compare = function(version1, version2) {
 		break;
 	}
 	return cmp;
+};
+Version.configure = function() {
+	
+};
+Version.configured = function() {
+	var dir = storage.get('versions::order-descending') ? -1 : 1;
+	Version.all.sort(function(v1, v2) {
+		return Version.compare(v1.code, v2.code) * dir;
+	});
+	$.each(Version.all, function() {
+		this.hidden = storage.get('versions::' + this.code + '::hidden') ? true : false;
+	});
 };
 
 function Type(data) {
@@ -568,6 +587,7 @@ $(window.document).ready(function() {
 		$.each(result.versions, function(code, data) {
 			new Version(code, data);
 		});
+		Version.configured();
 		function processNextType(typeIndex, cb) {
 			if(typeIndex >= Type.all.length) {
 				cb();
@@ -645,7 +665,26 @@ $(window.document).ready(function() {
 			loadNext(0);
 		}
 		processNextType(0, function() {
-			debugger;
+			$('#dialog-options-versions').on('show.bs.modal', function() {
+				$.each(Version.all, function() {
+					this.$shown.prop('checked', !this.hidden);
+				});
+				$(storage.get('versions::order-descending') ? '#options-versions-desc' : '#options-versions-asc').prop('checked', true);
+			});
+			$('#options-versions-apply').on('click', function() {
+				$.each(Version.all, function() {
+					this.hidden = !this.$shown.prop('checked');
+					storage.set('versions::' + this.code + '::hidden', this.hidden ? true : null);
+				});
+				storage.set('versions::order-descending', $('#options-versions-desc').is(':checked') ? true : null);
+				$('#dialog-options-versions').modal('hide');
+				if(viewer) {
+					viewer.view();
+				}
+			});
+			$('.hide-until-ready').show();
+			setWorking();
+			//debugger;
 		});
 		return;
 		if('functions' in result) {

@@ -1,11 +1,9 @@
 body {
 	padding-top: 60px;
 }
-.container-mine {
-  padding-right: 15px;
-  padding-left: 15px;
-  margin-right: auto;
-  margin-left: auto;
+
+.hide-until-ready {
+	display: none;
 }
 
 #working {
@@ -31,6 +29,10 @@ body {
 #working-text {
 	max-width: 350px;
 	text-align: center;
+}
+
+#dialog-options-versions ul {
+	list-style-type: none;
 }
 
 #result {
