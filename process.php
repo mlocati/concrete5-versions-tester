@@ -837,7 +837,7 @@ class _C5VT_ {
 		foreach($versions as $version) {
 			$result[$version] = array();
 			if(strlen($sql)) {
-				$sql .= ' and ';
+				$sql .= ' or ';
 			}
 			else {
 				$sql = '
@@ -1027,7 +1027,7 @@ class _C5VT_ {
 		foreach($versions as $version) {
 			$result[$version] = array();
 			if(strlen($sql)) {
-				$sql .= ' and ';
+				$sql .= ' or ';
 			}
 			else {
 				$sql = '
