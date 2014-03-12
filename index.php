@@ -71,7 +71,7 @@
 
 <script src="js/jquery.min.js"></script>
 <script src="js/bootstrap.min.js"></script>
-<script src="js/chosen.jquery.js"></script>
+<script src="js/chosen.jquery.min.js"></script>
 <script src="<?php echo 'js/main.js?v=' . @filemtime('js/main.js')?>"></script>
 <script>
 (function(i,s,o,g,r,a,m) {
