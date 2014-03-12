@@ -3,7 +3,7 @@
 var viewer = null;
 
 var storage = (function() {
-	var ls = window.localStorage || null, local = {};
+	var ls = (window.localStorage && window.JSON && window.JSON.parse && window.JSON.stringify) ? window.localStorage : null, local = {};
 	return {
 		setSchema: function(schema) {
 			if(ls && (ls.getItem('schema') !== schema)) {
@@ -123,6 +123,14 @@ function Type(data) {
 	var me = this;
 	for(var k in data) {
 		me[k] = data[k];
+	}
+	switch(me.handle) {
+		case 'constants':
+			me.caseSensitive = true;
+			break;
+		default:
+			me.caseSensitive = false;
+			break;
 	}
 	$('#options-operations').append($('<label class="radio-inline" />')
 		.text(me.nameN)
@@ -266,6 +274,7 @@ Type.prototype = {
 			case 'models':
 				if(me.showMethods) {
 					if(!me.methodsForClass) {
+						$('#result').html('<div class="alert alert-info">Please select which ' + me.name1 + ' you want to view</div>');
 						return;
 					}
 					data.type = 'methods';
@@ -273,7 +282,67 @@ Type.prototype = {
 				}
 				break;
 		}
-		alert(JSON.stringify(data));
+		data.versions = Version.getVisible();
+		if(!data.versions.length) {
+			$('#result').html('<div class="alert alert-danger">Please select at least one version</div>');
+			return;
+		}
+		setWorking('Updating...');
+		setTimeout(function() {
+			me['view_' + data.type](data);
+			setWorking();
+		}, 10);
+	},
+	view_flat: function(data) {
+		var me = this;
+		var defs = {};
+		var filters = [];
+		switch(me.handle) {
+			case 'constants':
+			case 'functions':
+			case 'libraries':
+				if(!me.show3rdParty) {
+					filters.push(function(info) {
+						return info.is3rdParty ? false : true;
+					});
+				}
+				break;
+		}
+		switch(me.handle) {
+			case 'constants':
+				if(!me.showNotAlways) {
+					filters.push(function(info) {
+						return info.always ? false : true;
+					});
+				}
+				break;
+		}
+		var filter = null;
+		var nFilters = filters.length;
+		if(nFilters) {
+			filter = function(info) {
+				for(var i = 0; i < nFilters; i++) {
+					if(filters[i](info)) {
+						return true;
+					}
+				}
+				return false;
+			}
+		}
+		$.each(data.versions, function(i) {
+			$.each(storage.get(me.handle + '::' + this.code), function(name) {
+				if(filter && filter(this)) {
+					return;
+				}
+				var key = me.caseSensitive ? name : name.toLowerCase();
+				if(!(key in defs)) {
+					defs[key] = [];
+				}
+				defs[key][i] = {name: name, data: this};
+			});
+		});
+		var keys = []; for(var k in defs) keys.push(k);
+		alert(keys.length);
 	}
 };
 new Type({name1: 'constant', nameN: 'constants', handle: 'constants', actionGetParsed: 'get-parsed-constants', actionGetUnparsed: 'get-version-constants'});

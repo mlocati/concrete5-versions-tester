@@ -134,7 +134,7 @@ catch(Exception $x) {
 }
 
 class _C5VT_ {
-	const SCHEMA_VERSION = '2.1';
+	const SCHEMA_VERSION = '2.2';
 	const CLASSCATEGORY_HELPER = 'helper';
 	const CLASSCATEGORY_LIBRARY = 'library';
 	const CLASSCATEGORY_MODEL = 'model';
@@ -472,6 +472,11 @@ class _C5VT_ {
 			}
 			$rs->close();
 		}
+		foreach(array_keys($result) as $i) {
+			foreach(array_keys($result[$i]) as $j) {
+					$result[$i][$j]['is3rdParty'] = self::is3rdParty($result[$i][$j]['definitions']);
+			}
+		}
 		return $result;
 	}
 	private static function parseConstants($version) {
@@ -528,6 +533,9 @@ class _C5VT_ {
 			}
 			@$mi->autocommit(true);
 			throw $x;
+		}
+		foreach(array_keys($result) as $j) {
+			$result[$j]['is3rdParty'] = self::is3rdParty($result[$j]['definitions']);
 		}
 		return $result;
 	}
@@ -733,6 +741,11 @@ class _C5VT_ {
 			}
 			$rs->close();
 		}
+		foreach(array_keys($result) as $i) {
+			foreach(array_keys($result[$i]) as $j) {
+				$result[$i][$j]['is3rdParty'] = array_key_exists('file', $result[$i][$j]) ? self::is3rdParty(array($result[$i][$j])) : false;
+			}
+		}
 		return $result;
 	}
 	private static function parseFunctions($version) {
@@ -799,6 +812,9 @@ class _C5VT_ {
 				@$mi->autocommit(true);
 				throw $x;
 			}
+			foreach(array_keys($result) as $j) {
+				$result[$j]['is3rdParty'] = array_key_exists('file', $result[$j]) ? self::is3rdParty(array($result[$j])) : false;
+			}
 			return $result;
 		}
 	}
@@ -829,7 +845,6 @@ class _C5VT_ {
 		uksort($result, function($a, $b) {
 			return strnatcasecmp($a, $b);
 		});
-		return $result;
 	}
 	private static function loadClasses($category, $versions) {
 		$result = array();
@@ -862,6 +877,15 @@ class _C5VT_ {
 				$result[$row['cVersion']][$row['cName']] = $d;
 			}
 			$rs->close();
+		}
+		switch($category) {
+			case self::CLASSCATEGORY_LIBRARY:
+				foreach(array_keys($result) as $i) {
+					foreach(array_keys($result[$i]) as $j) {
+						$result[$i][$j]['is3rdParty'] = self::is3rdParty(array($result[$i][$j]));
+					}
+				}
+				break;
 		}
 		return $result;
 	}
@@ -897,6 +921,13 @@ class _C5VT_ {
 			}
 			@$mi->autocommit(true);
 			throw $x;
+		}
+		switch($category) {
+			case self::CLASSCATEGORY_LIBRARY:
+				foreach(array_keys($result) as $j) {
+					$result[$j]['is3rdParty'] = self::is3rdParty(array($result[$j]));
+				}
+				break;
 		}
 		return $result;
 	}
@@ -1162,5 +1193,20 @@ class _C5VT_ {
 			throw $x;
 		}
 		return $result;
+	}
+	private static function is3rdParty($definitions) {
+		$is3rdParty = false;
+		if(is_array($definitions)) {
+			foreach($definitions as $definition) {
+				if(strpos($definition['file'], 'concrete/libraries/3rdparty/') === 0) {
+					$is3rdParty = true;
+				}
+				else {
+					$is3rdParty = false;
+					break;
+				}
+			}
+		}
+		return $is3rdParty;
 	}
 }
