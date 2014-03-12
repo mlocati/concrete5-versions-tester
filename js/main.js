@@ -295,15 +295,21 @@ Type.prototype = {
 	},
 	view_flat: function(data) {
 		var me = this;
-		var defs = {};
 		var filters = [];
+		var hasDefinitions = false;
+		switch(me.handle) {
+			default:
+				hasDefinitions = true;
+				break;
+		}
 		switch(me.handle) {
 			case 'constants':
 			case 'functions':
 			case 'libraries':
+				hasDefinitions = true;
 				if(!me.show3rdParty) {
 					filters.push(function(info) {
-						return info.is3rdParty ? false : true;
+						return info.is3rdParty ? true : false;
 					});
 				}
 				break;
@@ -329,20 +335,78 @@ Type.prototype = {
 				return false;
 			}
 		}
-		$.each(data.versions, function(i) {
-			$.each(storage.get(me.handle + '::' + this.code), function(name) {
-				if(filter && filter(this)) {
-					return;
+		var structured = {};
+		$.each(data.versions, function(vi) {
+			var all = storage.get(me.handle + '::' + this.code), info;
+			for(var name in all) {
+				info = all[name];
+				if(filter && filter(info)) {
+					continue;
 				}
-				var key = me.caseSensitive ? name : name.toLowerCase();
-				if(!(key in defs)) {
-					defs[key] = [];
+				var nameLC = name.toLowerCase();
+				var key = me.caseSensitive ? name : nameLC;
+				if(!(key in structured)) {
+					structured[key] = {sorter: nameLC, name: name, v: []};
 				}
-				defs[key][i] = {name: name, data: this};
-			});
+				structured[key].v[vi] = info;
+			};
 		});
-		var keys = []; for(var k in defs) keys.push(k);
-		alert(keys.length);
+		var flat = [];
+		for(var k in structured) {
+			flat.push(structured[k]);
+		}
+		flat.sort(function(a, b) {
+			if(a.sorter < b.sorter) {
+				return -1;
+			}
+			if(a.sorter > b.sorter) {
+				return 1;
+			}
+			return 0;
+		});
+		if(!flat.length) {
+			$('#result').html('<div class="alert alert-info">No result</div>');
+			return;
+		}
+		var $tr, $tb;
+		$('#result').append($('<table class="table table-bordered" />')
+			.append($('<thead />')
+				.append($tr = $('<tr />')
+					.append('<th />')
+				)
+			)
+			.append($tb = $('<tbody />'))
+		);
+		$.each(data.versions, function() {
+			$tr.append($('<th />').text(this.code));
+		});
+		$.each(flat, function() {
+			$tb.append($tr = $('<tr />')
+				.append($('<th' + (hasDefinitions ? ' rowspan="2"' : '') + ' />').text(this.name))
+			);
+			var info, nextCells = [];
+			for(var vi = 0; vi < data.versions.length; vi++) {
+				info = this.v[vi];
+				if(!info) {
+					$tr.append('<td' + (hasDefinitions ? ' rowspan="2"' : '') + ' class="not-available">&#x2717;</td>');
+				}
+				else {
+					$tr.append($('<td>y</td>'));
+					if(hasDefinitions) {
+						nextCells.push($('<td>def</td>'))
+					}
+				}
+			}
+			if(nextCells.length) {
+				$tb.append($tr = $('<tr />'));
+				$.each(nextCells, function() {
+					$tr.append(this);
+				});
+			}
+		});
+	},
+	view_methods: function() {
+		$('#result').html('<div class="alert alert-danger">Still not implemented</div>');
 	}
 };
 new Type({name1: 'constant', nameN: 'constants', handle: 'constants', actionGetParsed: 'get-parsed-constants', actionGetUnparsed: 'get-version-constants'});
@@ -512,6 +576,7 @@ $(window.document).ready(function() {
 				});
 				storage.set('versions::order-descending', $('#options-versions-desc').is(':checked') ? true : null);
 				$('#dialog-options-versions').modal('hide');
+				Version.configured();
 				if(Type.active) {
 					Type.active.updateOptionsState();
 					Type.active.view();

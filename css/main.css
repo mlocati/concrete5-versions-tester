@@ -44,6 +44,15 @@ body {
 #result {
 	margin: 10px 10px 0 10px;
 }
+#result>table {
+	width: auto;
+	max-width: 100%;
+}
+#result tbody td.not-available {
+	color: red;
+	text-align: center;
+	vertical-align: middle;
+}
 
 table.result-classes thead tr th {
 	text-align: center;
