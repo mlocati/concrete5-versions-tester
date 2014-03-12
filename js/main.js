@@ -109,6 +109,15 @@ Version.configured = function() {
 		this.hidden = storage.get('versions::' + this.code + '::hidden') ? true : false;
 	});
 };
+Version.getVisible = function() {
+	var l = [];
+	$.each(Version.all, function() {
+		if(!this.hidden) {
+			l.push(this);
+		}
+	});
+	return l;
+};
 
 function Type(data) {
 	var me = this;
@@ -130,34 +139,39 @@ function Type(data) {
 Type.all = [];
 Type.prototype = {
 	activate: function() {
-		var me = this, $s;
+		var me = this;
 		$('#options .panel-body .type-specific').remove();
 		switch(me.handle) {
 			case 'helpers':
 			case 'libraries':
 			case 'models':
-				var $showClassesRow;
-				$('#options .panel-body').append($showClassesRow = $('<div class="row type-specific" />')
+				$('#options .panel-body').append(me.$showClassesRow = $('<div class="row type-specific" />')
 					.append('<div class="col-md-2"><label>List</label></div>')
 					.append($('<div class="col-md-6" />')
-						.append($('<div class="radio"><label><input type="radio" name="show-methods" value="" checked> show all classes</label></div>'))
+						.append($('<div class="radio"><label><input type="radio" name="show-methods" value=""' + (me.showMethods ? '' : ' checked') + '> show all classes</label></div>'))
 						.append($('<div class="radio" />')
-							.append($('<label><input type="radio" name="show-methods" value="1"> show methods of </label>')
+							.append($('<label><input type="radio" name="show-methods" value="1"' + (me.showMethods ? ' checked' : '') + '> show methods of </label>')
 								.append($('<span />')
-									.append($s = $('<select><option>asdasdaads asdas</option></select>'))
+									.append(me.$classes = $('<select></select>')
+										.on('change', function() {
+											me.methodsForClass = this.value;
+											me.view();
+										})
+									)
 								)
 							)
 						)
 					)
 				);
-				var $j = $s.chosen({width: '400px'});
+				me.$classes.chosen({width: '400px', placeholder_text: 'select a ' + me.name1});
 				var upd = function(view) {
-					$s.closest('span').css('visibility', $showClassesRow.find('input[name="show-methods"]:checked').val() ? '' : 'hidden');
+					me.showMethods = me.$showClassesRow.find('input[name="show-methods"]:checked').val() ? true : false;
+					me.$classes.closest('span').css('visibility', me.showMethods ? '' : 'hidden');
 					if(view) {
 						me.view();
 					}
 				}
-				$showClassesRow.find('input[name="show-methods"]').on('change', function() {
+				me.$showClassesRow.find('input[name="show-methods"]').on('change', function() {
 					if(this.checked) {
 						upd(true);
 					}
@@ -176,6 +190,7 @@ Type.prototype = {
 							.prepend($('<input type="checkbox" ' + (me.show3rdParty ? 'checked' : '') + ' />')
 								.on('click', function() {
 									me.show3rdParty = this.checked;
+									me.updateOptionsState();
 									me.view();
 								})
 							)
@@ -202,10 +217,63 @@ Type.prototype = {
 				break;
 		}
 		Type.active = me;
+		me.updateOptionsState();
 		me.view();
 	},
+	updateOptionsState: function() {
+		var me = this;
+		if(this.$showClassesRow) {
+			var done = {}, list = [];
+			$.each(Version.getVisible(), function() {
+				for(var c in storage.get(me.handle + '::' + this.code)) {
+					var clc = c.toLowerCase();
+					if(!(clc in done)) {
+						done[clc] = true;
+						list.push(c);
+					}
+				}
+			});
+			list.sort(function(a, b) {
+				var alc = a.toLowerCase(), blc = b.toLowerCase();
+				if(alc < blc) {
+					return -1;
+				}
+				if(alc > blc) {
+					return 1;
+				}
+				return 0;
+			});
+			me.$classes.empty().html('<option value="" selected />');
+			$.each(list, function(_, c) {
+				me.$classes.append($('<option />').val(c).text(c));
+			});
+			if(me.methodsForClass && ($.inArray(me.methodsForClass, list) >= 0)) {
+				me.$classes.val(me.methodsForClass);
+			}
+			else {
+				me.methodsForClass = '';
+			}
+			me.$classes.trigger('chosen:updated');
+		}
+	},
 	view: function() {
-		alert('view');
+		var me = this;
+		$('#result').empty();
+		var data = {type: 'flat'};
+		switch(me.handle) {
+			case 'helpers':
+			case 'libraries':
+			case 'models':
+				if(me.showMethods) {
+					if(!me.methodsForClass) {
+						return;
+					}
+					data.type = 'methods';
+					data.method = me.methodsForClass;
+				}
+				break;
+		}
+		alert(JSON.stringify(data));
 	}
 };
 new Type({name1: 'constant', nameN: 'constants', handle: 'constants', actionGetParsed: 'get-parsed-constants', actionGetUnparsed: 'get-version-constants'});
@@ -376,6 +444,7 @@ $(window.document).ready(function() {
 				storage.set('versions::order-descending', $('#options-versions-desc').is(':checked') ? true : null);
 				$('#dialog-options-versions').modal('hide');
 				if(Type.active) {
+					Type.active.updateOptionsState();
 					Type.active.view();
 				}
 			});
