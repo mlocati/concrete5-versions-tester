@@ -32,7 +32,7 @@
 	</div>
 </div>
 
-<div id="working"><div><div><div id="working-text" class="alert alert-info"></div></div></div></div>
+<div id="working"><div><div><div id="working-text" class="alert alert-info">Loading page components</div></div></div></div>
 
 <div class="panel panel-default hide-until-ready" id="options">
 	<div class="panel-body">
