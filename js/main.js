@@ -461,7 +461,7 @@ Type.prototype = {
 							return;
 						}
 						for(var version in result) {
-							storage.set(me.handle + '::' + options.className + '@' + version, emptyArrayToEmptyObject(result[version]));
+							storage.set(me.handle + '::' + classNameLC + '@' + version, emptyArrayToEmptyObject(result[version]));
 						}
 						loadNext(loadIndex + 1, dataReady);
 					});
@@ -474,7 +474,15 @@ Type.prototype = {
 							alert(result);
 							return;
 						}
-						storage.set(me.handle + '::' + options.className + '@' + load.data.version, emptyArrayToEmptyObject(result));
+						storage.set(me.handle + '::' + classNameLC + '@' + load.data.version, emptyArrayToEmptyObject(result));
+						var classList = storage.get(me.handle + '@' + load.data.version);
+						for(var cn in classList) {
+							if(cn.toLowerCase() === classNameLC) {
+								classList[cn].methodsParsed = true;
+								storage.set(me.handle + '@' + load.data.version, classList);
+								break;
+							}
+						}
 						loadNext(loadIndex + 1, dataReady);
 					});
 					break;
