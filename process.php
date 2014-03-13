@@ -134,7 +134,7 @@ catch(Exception $x) {
 }
 
 class _C5VT_ {
-	const SCHEMA_VERSION = '2.4.1';
+	const SCHEMA_VERSION = '2.4.3';
 	const CLASSCATEGORY_HELPER = 'helper';
 	const CLASSCATEGORY_LIBRARY = 'library';
 	const CLASSCATEGORY_MODEL = 'model';
@@ -1030,6 +1030,8 @@ class _C5VT_ {
 				_C5VT_Version
 				inner join _C5VT_Class on _C5VT_Version.vCode = _C5VT_Class.cVersion
 			where
+				(cVersion = ' . _C5VT_::escape($versions) . ')
+				and
 				(cCategory = ' . _C5VT_::escape($category) . ')
 				and
 				(cName = ' . _C5VT_::escape($class) . ')
