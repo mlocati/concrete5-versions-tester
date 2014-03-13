@@ -48,10 +48,33 @@ body {
 	width: auto;
 	max-width: 100%;
 }
-#result tbody td.not-available {
-	color: red;
+#result tbody td.is-available, #result tbody td.not-available {
 	text-align: center;
 	vertical-align: middle;
+}
+#result tbody td.is-available {
+	color: green;
+}
+#result tbody td.not-available {
+	color: red;
+}
+#result tbody td.one-of-two {
+	border-bottom-width: 0;
+	padding-bottom: 0;
+}
+#result tbody td.two-of-two {
+	border-top-width: 0;
+	padding-top: 0;
+}
+
+#result tbody td.definitions {
+	text-align: right;
+}
+#result tbody td.definitions a {
+	visibility: hidden;
+}
+#result tbody td.definitions:hover a {
+	visibility: visible;
 }
 
 table.result-classes thead tr th {

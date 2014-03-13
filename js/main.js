@@ -47,6 +47,10 @@ var storage = (function() {
 	};
 })();
 
+function emptyArrayToEmptyObject(item) {
+	return ($.isArray(item) && (item.length === 0)) ? {} : item;
+}
+
 function Version(code, data) {
 	this.code = code;
 	for(var k in data) {
@@ -178,7 +182,7 @@ Type.prototype = {
 					if(view) {
 						me.view();
 					}
-				}
+				};
 				me.$showClassesRow.find('input[name="show-methods"]').on('change', function() {
 					if(this.checked) {
 						upd(true);
@@ -233,7 +237,7 @@ Type.prototype = {
 		if(this.$showClassesRow) {
 			var done = {}, list = [];
 			$.each(Version.getVisible(), function() {
-				for(var c in storage.get(me.handle + '::' + this.code)) {
+				for(var c in storage.get(me.handle + '@' + this.code)) {
 					var clc = c.toLowerCase();
 					if(!(clc in done)) {
 						done[clc] = true;
@@ -267,7 +271,12 @@ Type.prototype = {
 	view: function() {
 		var me = this;
 		$('#result').empty();
-		var data = {type: 'flat'};
+		var versions = Version.getVisible();
+		if(!versions.length) {
+			$('#result').html('<div class="alert alert-danger">Please select at least one version</div>');
+			return;
+		}
+		var viewType = 'flat', viewOptions = {};
 		switch(me.handle) {
 			case 'helpers':
 			case 'libraries':
@@ -277,36 +286,20 @@ Type.prototype = {
 						$('#result').html('<div class="alert alert-info">Please select which ' + me.name1 + ' you want to view</div>');
 						return;
 					}
-					data.type = 'methods';
-					data.method = me.methodsForClass;
+					viewType = 'methods';
+					viewOptions.className = me.methodsForClass;
 				}
 				break;
 		}
-		data.versions = Version.getVisible();
-		if(!data.versions.length) {
-			$('#result').html('<div class="alert alert-danger">Please select at least one version</div>');
-			return;
-		}
-		setWorking('Updating...');
-		setTimeout(function() {
-			me['view_' + data.type](data);
-			setWorking();
-		}, 10);
+		me['view_' + viewType](versions, viewOptions);
 	},
-	view_flat: function(data) {
+	view_flat: function(versions) {
 		var me = this;
 		var filters = [];
-		var hasDefinitions = false;
-		switch(me.handle) {
-			default:
-				hasDefinitions = true;
-				break;
-		}
 		switch(me.handle) {
 			case 'constants':
 			case 'functions':
 			case 'libraries':
-				hasDefinitions = true;
 				if(!me.show3rdParty) {
 					filters.push(function(info) {
 						return info.is3rdParty ? true : false;
@@ -333,11 +326,11 @@ Type.prototype = {
 					}
 				}
 				return false;
-			}
+			};
 		}
 		var structured = {};
-		$.each(data.versions, function(vi) {
-			var all = storage.get(me.handle + '::' + this.code), info;
+		$.each(versions, function(vi) {
+			var all = storage.get(me.handle + '@' + this.code), info;
 			for(var name in all) {
 				info = all[name];
 				if(filter && filter(info)) {
@@ -349,7 +342,7 @@ Type.prototype = {
 					structured[key] = {sorter: nameLC, name: name, v: []};
 				}
 				structured[key].v[vi] = info;
-			};
+			}
 		});
 		var flat = [];
 		for(var k in structured) {
@@ -368,6 +361,18 @@ Type.prototype = {
 			$('#result').html('<div class="alert alert-info">No result</div>');
 			return;
 		}
+		var hasDefinitions = false;
+		switch(me.handle) {
+			default:
+				hasDefinitions = true;
+				break;
+		}
+		var variableProperties = null;
+		switch(me.handle) {
+			case 'functions':
+				variableProperties = ['parameters'];
+				break;
+		}
 		var $tr, $tb;
 		$('#result').append($('<table class="table table-bordered" />')
 			.append($('<thead />')
@@ -377,24 +382,31 @@ Type.prototype = {
 			)
 			.append($tb = $('<tbody />'))
 		);
-		$.each(data.versions, function() {
+		$.each(versions, function() {
 			$tr.append($('<th />').text(this.code));
 		});
 		$.each(flat, function() {
 			$tb.append($tr = $('<tr />')
 				.append($('<th' + (hasDefinitions ? ' rowspan="2"' : '') + ' />').text(this.name))
 			);
-			var info, nextCells = [];
-			for(var vi = 0; vi < data.versions.length; vi++) {
+			var info, nextCells = [], previous = null, exists, $td;
+			for(var vi = 0; vi < versions.length; vi++) {
 				info = this.v[vi];
-				if(!info) {
-					$tr.append('<td' + (hasDefinitions ? ' rowspan="2"' : '') + ' class="not-available">&#x2717;</td>');
+				exists = info ? true : false;
+				if(previous && (previous.exists === exists) && (!exists)) {
+					previous.$td.prop('colspan', 1 + (previous.$td.prop('colspan') || 1));
 				}
 				else {
-					$tr.append($('<td>y</td>'));
-					if(hasDefinitions) {
-						nextCells.push($('<td>def</td>'))
+					if(exists) {
+						$tr.append($td = $('<td class="is-available' + (hasDefinitions ? ' one-of-two' : '') + '">&#x2713;</td>'));
 					}
+					else {
+						$tr.append($td = $('<td' + (hasDefinitions ? ' rowspan="2"' : '') + ' class="not-available">&#x2717;</td>'));
+					}
+					previous = {exists: exists, $td: $td};
+				}
+				if(hasDefinitions && exists) {
+					nextCells.push($('<td class="two-of-two definitions"><a href="javascript:void(0)" title="Source code"><img src="images/source-code.png" alt="code" /></td>'));
 				}
 			}
 			if(nextCells.length) {
@@ -405,8 +417,83 @@ Type.prototype = {
 			}
 		});
 	},
-	view_methods: function() {
-		$('#result').html('<div class="alert alert-danger">Still not implemented</div>');
+	view_methods: function(versions, options) {
+		var me = this;
+		var classNameLC = options.className.toLowerCase(), classInfo = [], loadParsed = [], loadToBeParsed = [];
+		$.each(versions, function(vi) {
+			var classList = storage.get(me.handle + '@' + this.code);
+			for(var cn in classList) {
+				if(cn.toLowerCase() === classNameLC) {
+					classInfo[vi] = classList[cn];
+					if(classInfo[vi].methodsParsed) {
+						if(storage.get(me.handle + '::' + classNameLC + '@' + this.code) === null) {
+							loadParsed.push(this.code);
+						}
+					}
+					else {
+						loadToBeParsed.push(this.code);
+					}
+					break;
+				}
+			}
+		});
+		var loads = [];
+		if(loadParsed.length) {
+			loads.push({type: 'parsed', data: {versions: loadParsed}});
+		}
+		$.each(loadToBeParsed, function(_, version) {
+			loads.push({type: 'toBeParsed', data: {version: version}});
+		});
+		function loadNext(loadIndex, dataReady) {
+			if(loadIndex >= loads.length) {
+				dataReady();
+				return;
+			}
+			var load = loads[loadIndex];
+			var action;
+			switch(load.type) {
+				case 'parsed':
+					setWorking('Loading pre-parsed methods of ' + options.className + ' for versions<br>' + load.data.versions.join(', '));
+					process('get-parsed-methods', $.extend({category: me.classCategory, 'class': options.className}, load.data), false, function(ok, result) {
+						if(!ok) {
+							setWorking(false);
+							alert(result);
+							return;
+						}
+						for(var version in result) {
+							storage.set(me.handle + '::' + options.className + '@' + version, emptyArrayToEmptyObject(result[version]));
+						}
+						loadNext(loadIndex + 1, dataReady);
+					});
+					break;
+				case 'toBeParsed':
+					setWorking('Parse and load methods of ' + options.className + ' for version<br>' + load.data.version);
+					process('get-version-methods', $.extend({category: me.classCategory, 'class': options.className}, load.data), false, function(ok, result) {
+						if(!ok) {
+							setWorking(false);
+							alert(result);
+							return;
+						}
+						storage.set(me.handle + '::' + options.className + '@' + load.data.version, emptyArrayToEmptyObject(result));
+						loadNext(loadIndex + 1, dataReady);
+					});
+					break;
+			}
+		}
+		loadNext(0, function() {
+			setWorking(false);
+			var methods = []; 
+			$.each(versions, function(vi) {
+				var classList = storage.get(me.handle + '@' + this.code);
+				for(var cn in classList) {
+					if(cn.toLowerCase() === classNameLC) {
+						classInfo[vi] = classList[cn];
+						methods[vi] = storage.get(me.handle + '::' + classNameLC + '@' + this.code);
+						break;
+					}
+				}
+			});
+		});
 	}
 };
 new Type({name1: 'constant', nameN: 'constants', handle: 'constants', actionGetParsed: 'get-parsed-constants', actionGetUnparsed: 'get-version-constants'});
@@ -495,7 +582,7 @@ $(window.document).ready(function() {
 			var loadParsed = [], loadToBeParsed = [];
 			$.each(Version.all, function(_, version) {
 				if(version[type.handle + 'Parsed']) {
-					if(!storage.has(type.handle + '::' + version.code)) {
+					if(!storage.has(type.handle + '@' + version.code)) {
 						loadParsed.push(version.code);
 					}
 				}
@@ -534,7 +621,7 @@ $(window.document).ready(function() {
 								return;
 							}
 							for(var version in result) {
-								storage.set(type.handle + '::' + version, result[version]);
+								storage.set(type.handle + '@' + version, emptyArrayToEmptyObject(result[version]));
 							}
 							loadNext(loadIndex + 1);
 						});
@@ -554,7 +641,7 @@ $(window.document).ready(function() {
 								alert(result);
 								return;
 							}
-							storage.set(type.handle + '::' + load.data.version, result);
+							storage.set(type.handle + '@' + load.data.version, emptyArrayToEmptyObject(result));
 							loadNext(loadIndex + 1);
 						});
 						break;
