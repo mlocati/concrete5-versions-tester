@@ -134,18 +134,18 @@ catch(Exception $x) {
 }
 
 class _C5VT_ {
-	const SCHEMA_VERSION = '2.2';
+	const SCHEMA_VERSION = '2.4.1';
 	const CLASSCATEGORY_HELPER = 'helper';
 	const CLASSCATEGORY_LIBRARY = 'library';
 	const CLASSCATEGORY_MODEL = 'model';
-	private static function getClassCategoryFolderName($category) {
+	private static function getClassCategoryRelativeFolder($category) {
 		switch($category) {
 			case self::CLASSCATEGORY_HELPER:
-				return 'helpers';
+				return 'concrete/helpers';
 			case self::CLASSCATEGORY_LIBRARY:
-				return 'libraries';
+				return 'concrete/libraries';
 			case self::CLASSCATEGORY_MODEL:
-				return 'models';
+				return 'concrete/models';
 		}
 		throw new Exception("Invalid class category: $category");
 	}
@@ -208,7 +208,7 @@ class _C5VT_ {
 		}
 		return $rs;
 	}
-	private static function escape($str) {
+	public static function escape($str) {
 		return "'" . self::getConnection()->real_escape_string($str) . "'";
 	}
 	private static function launchConcrete5($version) {
@@ -757,28 +757,28 @@ class _C5VT_ {
 				continue;
 			}
 			foreach($names as $name) {
-				$d = array();
+				$info = array();
 				if(class_exists('ReflectionFunction', false)) {
 					$reflection = new ReflectionFunction($name);
-					$function['parameters'] = array();
+					$info['parameters'] = array();
 					foreach($reflection->getParameters() as $i => $p) {
-						$function['parameters'][] = self::describeParameter($p);
+						$info['parameters'][] = self::describeParameter($p);
 					}
-					$function['parameters'] = implode(', ', $function['parameters']);
+					$info['parameters'] = implode(', ', $info['parameters']);
 					$file = realpath($reflection->getFileName());
 					if(stripos($file, DIR_BASE) === 0) {
 						$file = substr($file, strlen(DIR_BASE) + 1);
 						$file = str_replace('\\', '/', $file);
-						$function['file'] = $file;
+						$info['file'] = $file;
 						$start = is_numeric($reflection->getStartLine()) ? @intval($reflection->getStartLine()) : -1;
 						$end = is_numeric($reflection->getEndLine()) ? @intval($reflection->getEndLine()) : -1;
 						if(($start > 0) && ($end > 0)) {
-							$function['lineStart'] = $start;
-							$function['lineEnd'] = $end;
+							$info['lineStart'] = $start;
+							$info['lineEnd'] = $end;
 						}
 					}
 				}
-				$result[$name] = $d;
+				$result[$name] = $info;
 			}
 			$mi = self::getConnection();
 			if(!(@$mi->autocommit(false))) {
@@ -845,6 +845,7 @@ class _C5VT_ {
 		uksort($result, function($a, $b) {
 			return strnatcasecmp($a, $b);
 		});
+		return $result;
 	}
 	private static function loadClasses($category, $versions) {
 		$result = array();
@@ -893,7 +894,7 @@ class _C5VT_ {
 		@set_time_limit(180);
 		_C5VT_::launchConcrete5($version);
 		$result = array();
-		self::parseClassesLister($result, $category, _C5VT_VERSIONS_FOLDER . "/$version/concrete/" . self::getClassCategoryFolderName($category), '');
+		self::parseClassesLister($result, $category, _C5VT_VERSIONS_FOLDER . "/$version/" . self::getClassCategoryRelativeFolder($category), self::getClassCategoryRelativeFolder($category));
 		$doneField = _C5VT_::getClassCategoryDonefieldName($category);
 		$mi = self::getConnection();
 		if(!(@$mi->autocommit(false))) {
@@ -1087,7 +1088,7 @@ class _C5VT_ {
 				if(is_string($row['mParameters'])) {
 					$d['parameters'] = $row['mParameters'];
 				}
-				if(is_string($row['mFile']) && strle($row['mFile'])) {
+				if(is_string($row['mFile']) && strlen($row['mFile'])) {
 					$d['file'] = $row['mFile'];
 					if(!(empty($row['mLineStart']) || empty($row['mLineEnd']))) {
 						$d['lineStart'] = intval($row['mLineStart']);
@@ -1105,10 +1106,13 @@ class _C5VT_ {
 		@set_time_limit(180);
 		$rs = self::query('
 			select
-				cId
+				cId,
+				cFile
 			from
 				_C5VT_Class
 			where
+				(cVersion = ' . _C5VT_::escape($version) . ')
+				and
 				(cCategory = ' . _C5VT_::escape($category) . ')
 				and
 				(cName = ' . _C5VT_::escape($class) . ')
@@ -1122,40 +1126,42 @@ class _C5VT_ {
 		$parentRecord = intval($row['cId']);
 		_C5VT_::launchConcrete5($version);
 		$result = array();
+		$loadMe = substr($row['cFile'], strlen(self::getClassCategoryRelativeFolder($category)) + 1, -strlen('.php'));
 		switch($category) {
 			case self::CLASSCATEGORY_HELPER:
-				Loader::helper($classAvailability[$version]);
+				Loader::helper($loadMe);
 				break;
 			case self::CLASSCATEGORY_LIBRARY:
-				Loader::library($classAvailability[$version]);
+				Loader::library($loadMe);
 				break;
 			case self::CLASSCATEGORY_MODEL:
-				Loader::model($classAvailability[$version]);
+				Loader::model($loadMe);
 				break;
 		}
 		foreach(get_class_methods($class) as $method) {
-			$result[$method] = array();
+			$info = array();
 			if(class_exists('ReflectionMethod', false)) {
 				$reflection = new ReflectionMethod("$class::$method");
-				$result[$method]['modifiers'] = implode(' ', Reflection::getModifierNames($reflection->getModifiers()));
+				$info['modifiers'] = implode(' ', Reflection::getModifierNames($reflection->getModifiers()));
 				$parameters = array();
 				foreach($reflection->getParameters() as $i => $p) {
 					$parameters[] = self::describeParameter($p);
 				}
-				$result[$method]['parameters'] = implode(', ', $parameters);
+				$info['parameters'] = implode(', ', $parameters);
 				$file = realpath($reflection->getFileName());
 				if(stripos($file, DIR_BASE) === 0) {
 					$file = substr($file, strlen(DIR_BASE) + 1);
 					$file = str_replace('\\', '/', $file);
-					$method['file'] = $file;
+					$info['file'] = $file;
 					$start = is_numeric($reflection->getStartLine()) ? @intval($reflection->getStartLine()) : -1;
 					$end = is_numeric($reflection->getEndLine()) ? @intval($reflection->getEndLine()) : -1;
 					if(($start > 0) && ($end > 0)) {
-						$result[$method]['lineStart'] = $start;
-						$result[$method]['lineEnd'] = $end;
+						$info['lineStart'] = $start;
+						$info['lineEnd'] = $end;
 					}
 				}
 			}
+			$result[$method] = $info;
 		}
 		$mi = self::getConnection();
 		if(!(@$mi->autocommit(false))) {
