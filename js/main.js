@@ -419,13 +419,12 @@ Type.prototype = {
 	},
 	view_methods: function(versions, options) {
 		var me = this;
-		var classNameLC = options.className.toLowerCase(), classInfo = [], loadParsed = [], loadToBeParsed = [];
+		var classNameLC = options.className.toLowerCase(), loadParsed = [], loadToBeParsed = [];
 		$.each(versions, function(vi) {
 			var classList = storage.get(me.handle + '@' + this.code);
 			for(var cn in classList) {
 				if(cn.toLowerCase() === classNameLC) {
-					classInfo[vi] = classList[cn];
-					if(classInfo[vi].methodsParsed) {
+					if(classList[cn][vi].methodsParsed) {
 						if(storage.get(me.handle + '::' + classNameLC + '@' + this.code) === null) {
 							loadParsed.push(this.code);
 						}
@@ -490,7 +489,8 @@ Type.prototype = {
 		}
 		loadNext(0, function() {
 			setWorking(false);
-			var methods = []; 
+			var methods = [];
+			var classInfo = []; 
 			$.each(versions, function(vi) {
 				var classList = storage.get(me.handle + '@' + this.code);
 				for(var cn in classList) {
