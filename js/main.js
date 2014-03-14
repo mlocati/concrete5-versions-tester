@@ -1,6 +1,6 @@
 (function(undefined) {
 "use strict";
-var viewer = null;
+var codeMirrorReady = false;
 
 var storage = (function() {
 	var ls = (window.localStorage && window.JSON && window.JSON.parse && window.JSON.stringify) ? window.localStorage : null, local = {};
@@ -27,7 +27,7 @@ var storage = (function() {
 			return ls ? JSON.parse(v) : v;
 		},
 		set: function(key, value) {
-			if(value === null) {
+			if((value === null) || (value === undefined)) {
 				if(ls) {
 					ls.removeItem(key);
 				}
@@ -97,6 +97,86 @@ function is3rdParty(definitions) {
 		});
 	}
 	return r;
+}
+
+function setDefinitions($td, version, info) {
+	$td.append($('<a href="javascript:void(0)" class="definitions" title="Show definition"><img src="images/source-code.png" alt="code"></a>')
+		.on('click', function() {
+			showDefinitions(version, info);
+		})
+	);
+}
+function showDefinitions(version, info) {
+	var items = [], loads = [];
+	function getItem(i) {
+		if(!(i && i.file)) {
+			return;
+		}
+		var item = {file: i.file};
+		if(i.line) {
+			item.lineStart = i.line;
+		}
+		else if(i.lineStart && i.lineEnd) {
+			item.lineStart = i.lineStart;
+			item.lineEnd = i.lineEnd;
+		}
+		var content = storage.get('source::' + item.file + '@' + version.code);
+		if(content === null) {
+			loads.push(items.length);
+		}
+		else {
+			item.content = content;
+		}
+		items.push(item);
+	}
+	getItem(info);
+	if($.isArray(info.definitions)) {
+		$.each(info.definitions, function() {
+			getItem(this);
+		});
+	}
+	if(!items.length) {
+		alert('Definitions not available');
+		return;
+	}
+	function loadNext(loadIndex, cb) {
+		if(loadIndex >= loads.length) {
+			cb();
+			return;
+		}
+		var item = items[loads[loadIndex]];
+		setWorking('Loading source code of ' + item.file + ' for version ' + version.code);
+		process('get-source', {version: version.code, file: item.file}, false, function(ok, result) {
+			if(!ok) {
+				setWorking(false);
+				alert(result);
+				return;
+			}
+			storage.set('source::' + item.file + '@' + version.code, result);
+			item.content = result;
+			loadNext(loadIndex + 1, cb);
+		});
+	}
+	loadNext(0, function() {
+		setWorking(false);
+		var $s = $('#definitions-which');
+		$s.empty();
+		$.each(items, function() {
+			this.version = version;
+			var name = this.file;
+			if(this.lineStart) {
+				name += '@' + this.lineStart;
+				if(this.lineEnd) {
+					name += '-' + this.lineEnd;
+				}
+			}
+			$s.append($('<option />')
+				.text(name)
+				.data('item', this)
+			);
+		});
+		$('#dialog-definitions').modal('show');
+	});
 }
 
 function Version(code, data) {
@@ -568,10 +648,10 @@ Type.prototype = {
 		$.each(versions, function() {
 			$tr.append($('<th />').text(this.code));
 		});
-		var vi, m = null;
+		var vi, m = null, $th;
 		if(classInfo) {
 			$tb.append($tr = $('<tr />')
-				.append($td = $('<th />'))
+				.append($th = $('<th />'))
 			);
 			for(vi = 0; vi < versions.length; vi++) {
 				if(classInfo[vi]) {
@@ -579,25 +659,26 @@ Type.prototype = {
 						switch(me.handle) {
 							case 'helpers':
 								if((m = /^concrete\/helpers\/(.*)\.php/.exec(classInfo[vi].file)) !== null) {
-									$td.append($('<span class="loader-info" />').text("Loader::helper('" + m[1] + "')"));
+									$th.append($('<span class="loader-info" />').text("Loader::helper('" + m[1] + "')"));
 								}
 								break;
 							case 'libraries':
 								if((m = /^concrete\/libraries\/(.*)\.php/.exec(classInfo[vi].file)) !== null) {
-									$td.append($('<span class="loader-info" />').text("Loader::library('" + m[1] + "')"));
+									$th.append($('<span class="loader-info" />').text("Loader::library('" + m[1] + "')"));
 								}
 								break;
 							case 'models':
 								if((m = /^concrete\/models\/(.*)\.php/.exec(classInfo[vi].file)) !== null) {
-									$td.append($('<span class="loader-info" />').text("Loader::model('" + m[1] + "')"));
+									$th.append($('<span class="loader-info" />').text("Loader::model('" + m[1] + "')"));
 								}
 								break;
 						}
 					}
-					$tr.append($('<td class="is-available">&#x2713;</td>'));
+					$tr.append($td = $('<td class="is-available">&#x2713;</td>'));
+					setDefinitions($td, versions[vi], classInfo[vi]);
 				}
 				else {
-					$tr.append($('<td class="not-available">&#x2717;</td>'));
+					$tr.append('<td class="not-available">&#x2717;</td>');
 				}
 			}
 		}
@@ -703,10 +784,11 @@ Type.prototype = {
 					}
 					else {
 						$tr.append($td = $('<td class="is-available">&#x2713;</td>'));
+						setDefinitions($td, versions[vi], info);
 					}
 				}
 				else {
-					$tr.append($td = $('<td class="not-available">&#x2717;</td>'));
+					$tr.append('<td class="not-available">&#x2717;</td>');
 					previousSpecial = null;
 				}
 			}
@@ -768,6 +850,40 @@ function process(action, data, post, callback) {
 
 $(window.document).ready(function() {
 	setWorking('Loading initial data...');
+	
+	var loadSubs = [
+		{js: 'js/codemirror/lib/codemirror.js'},
+		{css: 'js/codemirror/lib/codemirror.css'},
+		{js: 'js/codemirror/mode/htmlmixed/htmlmixed.js'},
+		{js: 'js/codemirror/mode/xml/xml.js'},
+		{js: 'js/codemirror/mode/javascript/javascript.js'},
+		{js: 'js/codemirror/mode/css/css.js'},
+		{js: 'js/codemirror/mode/clike/clike.js'},
+		{js: 'js/codemirror/mode/php/php.js'}
+	];
+	function loadNextSub(subIndex) {
+		if(subIndex >= loadSubs.length) {
+			codeMirrorReady = true;
+			return;
+		}
+		var obj;
+		if(loadSubs[subIndex].js) {
+			obj = document.createElement('script');
+			obj.src = loadSubs[subIndex].js;
+		}
+		else if(loadSubs[subIndex].css) {
+			obj = document.createElement('link');
+			obj.rel = 'stylesheet';
+			obj.href = loadSubs[subIndex].css;
+		}
+		obj.async = true;
+		obj.onload = function() {
+			loadNextSub(subIndex + 1);
+		};
+		var oneScript = document.getElementsByTagName('script')[0];
+		oneScript.parentNode.insertBefore(obj, oneScript);
+	}
+	loadNextSub(0);
 	if(storage.isPermanent) {
 		$('#top-menu ul').append('<li><a href="#" data-toggle="modal" data-target="#dialog-quit">Quit</a></li>');
 		$('#dialog-quit').on('show.bs.modal', function() {
@@ -854,7 +970,6 @@ $(window.document).ready(function() {
 					return;
 				}
 				var load = loads[loadIndex];
-				var action;
 				switch(load.type) {
 					case 'parsed':
 						setWorking('Loading pre-parsed ' + type.nameN + ' for versions<br>' + load.data.versions.join(', '));
@@ -918,6 +1033,55 @@ $(window.document).ready(function() {
 				});
 				$(storage.get('versions::order-descending') ? '#options-versions-desc' : '#options-versions-asc').prop('checked', true);
 				updateMaxHeight();
+			});
+			$('#dialog-definitions').on('show.bs.modal', function() {
+				$('#definitions-code').empty();
+				$('#definitions-github').hide();
+			});
+			$('#dialog-definitions').on('shown.bs.modal', function() {
+				$('#definitions-which').prop('selectedIndex', 0).trigger('change');
+			});
+			$('#definitions-which').on('change', function() {
+				var item = $(this).find('option:selected').data('item');
+				$('#definitions-code').empty();
+				$('#definitions-github').hide();
+				if(!item) {
+					return;
+				}
+				var $ta;
+				$('#definitions-code').append($ta = $('<textarea />').val(item.content));
+				if(codeMirrorReady) {
+					var cm = CodeMirror.fromTextArea(
+						$ta[0],
+						{
+							mode: 'application/x-httpd-php',
+							indentUnit: 3,
+							tabSize: 3,
+							indentWithTabs: true,
+							lineNumbers: true,
+							readOnly: true,
+							autofocus: true
+						}
+					);
+					if(item.lineStart) {
+						var le = item.lineEnd || item.lineStart;
+						for(var l = item.lineStart; l <= le; l++) {
+							cm.addLineClass(l - 1, 'background', 'cm-hiline');
+						}
+						cm.setCursor(le - 1);
+						cm.setCursor(item.lineStart - 1);
+					}
+				}
+				if(item.version.codeBaseUrl) {
+					var url = item.version.codeBaseUrl + '/' + item.file;
+					if(item.lineStart) {
+						url += '#L' + item.lineStart;
+						if(item.lineEnd && (item.lineEnd > item.lineStart)) {
+							url += '-' + item.lineEnd;
+						}
+					}
+					$('#definitions-github').attr('href', url).show();
+				}
 			});
 			$(window).on('resize', function() {
 				updateMaxHeight();

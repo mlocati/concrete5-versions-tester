@@ -132,6 +132,26 @@ try {
 		case 'get-version-methods':
 			$result = _C5VT_::getMethods(_C5VT_::getString('category'), _C5VT_::getString('class'), _C5VT_::getString('version'));
 			break;
+		case 'get-source':
+			$version = _C5VT_::getString('version');
+			if(!in_array($version, _C5VT_::getVersions())) {
+				throw new Exception("Invalid version: '$version'");
+			}
+			$file = _C5VT_::getString('file');
+			if(!strlen($file)) {
+				throw new Exception('Missing file');
+			}
+			$versionFolder = realpath(_C5VT_VERSIONS_FOLDER . "/$version");
+			$filePath = realpath("$versionFolder/$file");
+			if((!$filePath) || (!is_file($filePath)) || (strpos($filePath, $versionFolder) !== 0)) {
+				throw new Exception("Invalid file: '$file'");
+			}
+			$result = file_get_contents($filePath);
+			if($result === false) {
+				throw new Exception("Can't read file '$file'");
+			}
+			$result = str_replace("\r", "\n", str_replace("\r\n", "\n", $result));
+			break;
 		default:
 			throw new Exception("Invalid action: '$action'");
 	}

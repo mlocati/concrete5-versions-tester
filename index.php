@@ -71,6 +71,25 @@
 	</div>
 </div>
 
+<div id="dialog-definitions" class="modal" tabindex="-1">
+	<div class="modal-dialog modal-lg">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal">&times;</button>
+				<h4 class="modal-title">Definitions</h4>
+			</div>
+			<div class="modal-body">
+				<select class="form-control" id="definitions-which"></select>
+				<div id="definitions-code"></div>
+			</div>
+			<div class="modal-footer">
+				<a href="#" target="_blank" class="btn btn-primary" id="definitions-github">View on GitHub</a>
+				<button type="button" class="btn btn-info" data-dismiss="modal">Close</button>
+			</div>
+		</div>
+	</div>
+</div>
+
 <div id="dialog-quit" class="modal" tabindex="-1">
 	<div class="modal-dialog modal-md">
 		<div class="modal-content">

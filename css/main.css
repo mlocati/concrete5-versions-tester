@@ -82,6 +82,30 @@ body {
 	font-family: Consolas, Courier, "Courier New", monospace;
 	display: block;
 }
+#result tbody td.is-available .definitions {
+	display: none;
+	position: absolute;
+}
+#result tbody td.is-available:hover .definitions {
+	display: inline;
+}
+#definitions-code {
+	margin-top: 10px;
+}
+#definitions-code textarea {
+	width: 100%;
+	height: 400px;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+	font-family: Consolas, Courier, "Courier New", monospace;
+}
+#definitions-github {
+	display: none;
+}
+.cm-hiline {
+	background-color: #dbffdb;
+}
 
 #author {
 	display: none;
