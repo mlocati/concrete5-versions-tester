@@ -795,11 +795,11 @@ Type.prototype = {
 		});
 	}
 };
-new Type({name1: 'constant', nameN: 'constants', handle: 'constants', actionGetParsed: 'get-parsed-constants', actionGetUnparsed: 'get-version-constants'});
-new Type({name1: 'function', nameN: 'functions', handle: 'functions', actionGetParsed: 'get-parsed-functions', actionGetUnparsed: 'get-version-constants'});
 new Type({name1: 'helper', nameN: 'helpers', handle: 'helpers', actionGetParsed: 'get-parsed-classes', classCategory: 'helper', actionGetUnparsed: 'get-parsed-constants'});
 new Type({name1: 'library', nameN: 'libraries', handle: 'libraries', actionGetParsed: 'get-parsed-classes', classCategory: 'library', actionGetUnparsed: 'get-parsed-constants'});
 new Type({name1: 'model', nameN: 'models', handle: 'models', actionGetParsed: 'get-parsed-classes', classCategory: 'model', actionGetUnparsed: 'get-parsed-constants'});
+new Type({name1: 'constant', nameN: 'constants', handle: 'constants', actionGetParsed: 'get-parsed-constants', actionGetUnparsed: 'get-version-constants'});
+new Type({name1: 'function', nameN: 'functions', handle: 'functions', actionGetParsed: 'get-parsed-functions', actionGetUnparsed: 'get-version-constants'});
 
 function setWorking(html) {
 	if((typeof(html) == 'string') || (html === true)) {
