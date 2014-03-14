@@ -45,7 +45,7 @@
 
 <div id="result"></div>
 
-<div id="dialog-options-versions" class="modal fade" tabindex="-1">
+<div id="dialog-options-versions" class="modal" tabindex="-1">
 	<div class="modal-dialog modal-md">
 		<div class="modal-content">
 			<div class="modal-header">
@@ -64,6 +64,25 @@
 			<div class="modal-footer">
 				<button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
 				<button type="button" class="btn btn-primary" id="options-versions-apply">Apply</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div id="dialog-quit" class="modal" tabindex="-1">
+	<div class="modal-dialog modal-md">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal">&times;</button>
+				<h4 class="modal-title">Quit</h4>
+			</div>
+			<div class="modal-body">
+				<p>This application uses <a href="https://developer.mozilla.org/en-US/docs/Web/Guide/API/DOM/Storage#localStorage" target="_blank">localStorage</a> to cache data.</p>
+				<p>Currently it uses <span id="quit-ls-size"></span>: if you think that's too much you can wipe it out...</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+				<button type="button" class="btn btn-warning" id="quit">Clear cache & Quit</button>
 			</div>
 		</div>
 	</div>

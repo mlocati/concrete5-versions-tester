@@ -58,57 +58,42 @@ body {
 #result tbody td.not-available {
 	color: red;
 }
-#result tbody td.one-of-two {
-	border-bottom-width: 0;
-	padding-bottom: 0;
-}
-#result tbody td.two-of-two {
-	border-top-width: 0;
-	padding-top: 0;
-}
-
-#result tbody td.definitions {
-	text-align: right;
-}
-#result tbody td.definitions a {
-	visibility: hidden;
-}
-#result tbody td.definitions:hover a {
-	visibility: visible;
-}
-
-table.result-classes thead tr th {
-	text-align: center;
-}
-table.result-classes tbody tr td {
-	text-align: center;
-}
-table.result-classes td.class-name, table.result-classes td.method-name {
-	text-align: left;
-	line-height: 19px;
-}
-table.result-classes .class-name, table.result-classes .method-name, table.result-classes .method-modifiers, table.result-classes .method-parameters {
+#result tbody th .modifiers {
 	font-family: Consolas, Courier, "Courier New", monospace;
-	font-size: 13px;
-}
-table.result-classes .method-modifiers {
-	font-weight: normal;
-	margin-right: 7px;
-}
-table.result-classes .method-parameters {
 	font-weight: normal;
 }
-
-table.result-classes .method-flavor {
-	text-align: left;
+#result tbody th .modifiers:after {
+	content: " ";
+}
+#result tbody th .name {
+	font-family: Consolas, Courier, "Courier New", monospace;
+}
+#result tbody th .parameters {
+	font-family: Consolas, Courier, "Courier New", monospace;
+	font-weight: normal;
+}
+#result tbody th .parameters:before {
+	content: "(";
+}
+#result tbody th .parameters:after {
+	content: ")";
+}
+#result tbody td .modifiers, #result tbody td .parameters {
+	font-family: Consolas, Courier, "Courier New", monospace;
+	display: block;
+}
+/*
+#result tbody td .modifiers:before, #result tbody td .parameters:before {
 	font-weight: bold;
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
-table.result-classes td div .method-modifiers, table.result-classes td div .method-parameters {
-	margin-left: .5em;
-	font-weight: normal;
+#result tbody td .modifiers:before {
+	content: "Modifiers: ";
 }
-
-table.result-classes>tfoot td {
-	text-align: right;
-	font-size: 10px;
+#result tbody td .parameters:before {
+	content: "Parameters: ";
 }
+#result tbody th .loader-info {
+	font-family: Consolas, Courier, "Courier New", monospace;
+}
+*/

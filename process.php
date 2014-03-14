@@ -24,6 +24,17 @@ try {
 					'codeBaseUrl' => null
 				);
 			}
+			$versionsInDB = array();
+			$rs = _C5VT_::query('select vCode from _C5VT_Version');
+			while($row = $rs->fetch_assoc()) {
+				$versionsInDB[] = $row['vCode'];
+			}
+			$rs->close();
+			foreach(array_keys($result['versions']) as $existing) {
+				if(!in_array($existing, $versionsInDB)) {
+					_C5VT_::query('insert into _C5VT_Version set vCode = ' . _C5VT_::escape($existing));
+				}
+			}
 			$rs = _C5VT_::query('select * from _C5VT_Version');
 			while($row = $rs->fetch_assoc()) {
 				$i = array_search($row['vCode'], $result['versions']);

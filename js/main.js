@@ -43,6 +43,36 @@ var storage = (function() {
 					local[key] = value;
 				}
 			}
+		},
+		isPermanent: ls ? true : false,
+		getPermanentSize: function() {
+			var size = 0;
+			if(ls) {
+				for(var key in ls) {
+					size += key.length + (ls[key] ? ls[key].length : 0);
+				}
+			}
+			if(size === 0) {
+				return '0 bytes';
+			}
+			if(size < 1000) {
+				return 'about ' + size + ' bytes';
+			}
+			size /= 1024;
+			if(size < 1000) {
+				return 'about ' + size.toFixed(1) + ' KB';
+			}
+			size /= 1024;
+			if(size < 1000) {
+				return 'about ' + size.toFixed(1) + ' MB';
+			}
+			size /= 1024;
+			return 'about ' + size.toFixed(1) + ' GB';
+		},
+		clearPermanentData: function() {
+			if(ls) {
+				ls.clear();
+			}
 		}
 	};
 })();
@@ -270,7 +300,7 @@ Type.prototype = {
 	},
 	view: function() {
 		var me = this;
-		$('#result').empty();
+		$('#result').hide().empty().show();
 		var versions = Version.getVisible();
 		if(!versions.length) {
 			$('#result').html('<div class="alert alert-danger">Please select at least one version</div>');
@@ -344,87 +374,20 @@ Type.prototype = {
 				structured[key].v[vi] = info;
 			}
 		});
-		var flat = [];
+		var flats = [];
 		for(var k in structured) {
-			flat.push(structured[k]);
+			flats.push(structured[k]);
 		}
-		flat.sort(function(a, b) {
-			if(a.sorter < b.sorter) {
-				return -1;
-			}
-			if(a.sorter > b.sorter) {
-				return 1;
-			}
-			return 0;
-		});
-		if(!flat.length) {
-			$('#result').html('<div class="alert alert-info">No result</div>');
-			return;
-		}
-		var hasDefinitions = false;
-		switch(me.handle) {
-			default:
-				hasDefinitions = true;
-				break;
-		}
-		var variableProperties = null;
-		switch(me.handle) {
-			case 'functions':
-				variableProperties = ['parameters'];
-				break;
-		}
-		var $tr, $tb;
-		$('#result').append($('<table class="table table-bordered" />')
-			.append($('<thead />')
-				.append($tr = $('<tr />')
-					.append('<th />')
-				)
-			)
-			.append($tb = $('<tbody />'))
-		);
-		$.each(versions, function() {
-			$tr.append($('<th />').text(this.code));
-		});
-		$.each(flat, function() {
-			$tb.append($tr = $('<tr />')
-				.append($('<th' + (hasDefinitions ? ' rowspan="2"' : '') + ' />').text(this.name))
-			);
-			var info, nextCells = [], previous = null, exists, $td;
-			for(var vi = 0; vi < versions.length; vi++) {
-				info = this.v[vi];
-				exists = info ? true : false;
-				if(previous && (previous.exists === exists) && (!exists)) {
-					previous.$td.prop('colspan', 1 + (previous.$td.prop('colspan') || 1));
-				}
-				else {
-					if(exists) {
-						$tr.append($td = $('<td class="is-available' + (hasDefinitions ? ' one-of-two' : '') + '">&#x2713;</td>'));
-					}
-					else {
-						$tr.append($td = $('<td' + (hasDefinitions ? ' rowspan="2"' : '') + ' class="not-available">&#x2717;</td>'));
-					}
-					previous = {exists: exists, $td: $td};
-				}
-				if(hasDefinitions && exists) {
-					nextCells.push($('<td class="two-of-two definitions"><a href="javascript:void(0)" title="Source code"><img src="images/source-code.png" alt="code" /></td>'));
-				}
-			}
-			if(nextCells.length) {
-				$tb.append($tr = $('<tr />'));
-				$.each(nextCells, function() {
-					$tr.append(this);
-				});
-			}
-		});
+		this._view(versions, flats);
 	},
 	view_methods: function(versions, options) {
 		var me = this;
 		var classNameLC = options.className.toLowerCase(), loadParsed = [], loadToBeParsed = [];
-		$.each(versions, function(vi) {
+		$.each(versions, function() {
 			var classList = storage.get(me.handle + '@' + this.code);
 			for(var cn in classList) {
 				if(cn.toLowerCase() === classNameLC) {
-					if(classList[cn][vi].methodsParsed) {
+					if(classList[cn].methodsParsed) {
 						if(storage.get(me.handle + '::' + classNameLC + '@' + this.code) === null) {
 							loadParsed.push(this.code);
 						}
@@ -489,18 +452,216 @@ Type.prototype = {
 		}
 		loadNext(0, function() {
 			setWorking(false);
-			var methods = [];
-			var classInfo = []; 
+			var methods, classInfo = [], structured = {}; 
 			$.each(versions, function(vi) {
-				var classList = storage.get(me.handle + '@' + this.code);
+				var classList = storage.get(me.handle + '@' + this.code), name, nameLC;
 				for(var cn in classList) {
 					if(cn.toLowerCase() === classNameLC) {
 						classInfo[vi] = classList[cn];
-						methods[vi] = storage.get(me.handle + '::' + classNameLC + '@' + this.code);
+						methods = storage.get(me.handle + '::' + classNameLC + '@' + this.code);
+						for(name in methods) {
+							nameLC = name.toLowerCase();
+							if(!(nameLC in structured)) {
+								structured[nameLC] = {sorter: nameLC, name: name, v: []};
+							}
+							structured[nameLC].v[vi] = methods[name];
+						}
 						break;
 					}
 				}
 			});
+			var flats = [];
+			for(var k in structured) {
+				flats.push(structured[k]);
+			}
+			me._view(versions, flats, classInfo);
+		});
+	},
+	_view: function(versions, flats, classInfo) {
+		var me = this;
+		flats.sort(function(a, b) {
+			if(a.sorter < b.sorter) {
+				return -1;
+			}
+			if(a.sorter > b.sorter) {
+				return 1;
+			}
+			return 0;
+		});
+		if(!flats.length) {
+			$('#result').html('<div class="alert alert-info">No result</div>');
+			return;
+		}
+		var hasDefinitions = false;
+		switch(me.handle) {
+			default:
+				hasDefinitions = true;
+				break;
+		}
+		var variableProperties = null;
+		if(classInfo) {
+			variableProperties = ['modifiers', 'parameters'];
+		}
+		else {
+			switch(me.handle) {
+				case 'functions':
+					variableProperties = ['parameters'];
+					break;
+			}
+		}
+		var methodsShower = null;
+		if(!classInfo) {
+			switch(me.handle) {
+				case 'helpers':
+				case 'libraries':
+				case 'models':
+					methodsShower = function(name) {
+						$('input[name="show-methods"][value="1"]').prop('checked', true).trigger('change');
+						me.$classes.val(name).trigger('change').trigger('chosen:updated');
+					};
+					break;
+			}
+		}
+		var $tr, $tb, $td;
+		$('#result').append($('<table class="table table-bordered table-striped" />')
+			.append($('<thead />')
+				.append($tr = $('<tr />')
+					.append('<th />')
+				)
+			)
+			.append($tb = $('<tbody />'))
+		);
+		$.each(versions, function() {
+			$tr.append($('<th />').text(this.code));
+		});
+		var vi, m = null;
+		if(classInfo) {
+			$tb.append($tr = $('<tr />')
+				.append($td = $('<th />'))
+			);
+			for(vi = 0; vi < versions.length; vi++) {
+				if(classInfo[vi]) {
+					if(m === null) {
+						switch(me.handle) {
+							case 'helpers':
+								if((m = /^concrete\/helpers\/(.*)\.php/.exec(classInfo[vi].file)) !== null) {
+									$td.append($('<span class="loader-info" />').text("Loader::helper('" + m[1] + "')"));
+								}
+								break;
+							case 'libraries':
+								if((m = /^concrete\/libraries\/(.*)\.php/.exec(classInfo[vi].file)) !== null) {
+									$td.append($('<span class="loader-info" />').text("Loader::library('" + m[1] + "')"));
+								}
+								break;
+							case 'models':
+								if((m = /^concrete\/models\/(.*)\.php/.exec(classInfo[vi].file)) !== null) {
+									$td.append($('<span class="loader-info" />').text("Loader::model('" + m[1] + "')"));
+								}
+								break;
+						}
+					}
+					$tr.append($td = $('<td class="is-available">&#x2713;</td>'));
+				}
+				else {
+					$tr.append($td = $('<td class="not-available">&#x2717;</td>'));
+				}
+			}
+		}
+		$.each(flats, function() {
+			var flat = this;
+			var pi, pn;
+			var first = true, common = {}, differences = null;
+			if(variableProperties) {
+				for(vi = 0; vi < versions.length; vi++) {
+					if(!flat.v[vi]) {
+						continue;
+					}
+					if(first) {
+						for(pi = 0; pi < variableProperties.length; pi++) {
+							common[variableProperties[pi]] = flat.v[vi][variableProperties[pi]];
+						}
+						first = false;
+						continue;
+					}
+					for(pn in common) {
+						if(common[pn] !== flat.v[vi][pn]) {
+							delete common[pn];
+							if(differences === null) {
+								differences = {};
+							}
+							differences[pn] = true;
+						}
+					}
+				}
+			}
+			var info;
+			$tb.append($tr = $('<tr />')
+				.append($td = $('<th />'))
+			);
+			var $parent;
+			if(methodsShower) {
+				$td.append($parent = $('<a href="javascript:void(0)" />')
+					.on('click', function() {
+						methodsShower(flat.name);
+					})
+				);
+			}
+			else {
+				$parent = $td;
+			}
+			if(('modifiers' in common) && common.modifiers.length) {
+				$parent.append($('<span class="modifiers" />').text(common.modifiers));
+			}
+			$parent.append($('<span class="name" />').text(flat.name));
+			if('parameters' in common) {
+				$parent.append($('<span class="parameters" />').text(common.parameters));
+			}
+			var previousSpecial = null, extend;
+			for(vi = 0; vi < versions.length; vi++) {
+				info = flat.v[vi];
+				if(info) {
+					if(differences) {
+						extend = false;
+						if(previousSpecial) {
+							extend = true;
+							for(pn in differences) {
+								if(info[pn] !== previousSpecial.info[pn]) {
+									extend = false;
+									break;
+								}
+							}
+						}
+						if(extend) {
+							previousSpecial.$td.prop('colspan', 1 + (previousSpecial.$td.prop('colspan') || 1));
+						}
+						else {
+							$tr.append($td = $('<td class="method-flavor" />'));
+							if(differences.modifiers && info.modifiers.length) {
+								$td
+									.append('<span class="label label-default">Modifiers</span>')
+									.append($('<span class="modifiers" />').text(info.modifiers))
+									.append('<br>')
+								;
+							}
+							if(differences.parameters && info.parameters.length) {
+								$td
+									.append('<span class="label label-primary">Parameters</span>')
+									.append($('<span class="parameters" />').text(info.parameters))
+									.append('<br>')
+								;
+							}
+							previousSpecial = {$td: $td, info: info};
+						}
+					}
+					else {
+						$tr.append($td = $('<td class="is-available">&#x2713;</td>'));
+					}
+				}
+				else {
+					$tr.append($td = $('<td class="not-available">&#x2717;</td>'));
+					previousSpecial = null;
+				}
+			}
 		});
 	}
 };
@@ -559,6 +720,16 @@ function process(action, data, post, callback) {
 
 $(window.document).ready(function() {
 	setWorking('Loading initial data...');
+	if(storage.isPermanent) {
+		$('#top-menu ul').append('<li><a href="#" data-toggle="modal" data-target="#dialog-quit">Quit</a></li>');
+		$('#dialog-quit').on('show.bs.modal', function() {
+			$('#quit-ls-size').text(storage.getPermanentSize());
+		});
+		$('#quit').on('click', function() {
+			storage.clearPermanentData();
+			$(document.body).empty().html('<div class="alert alert-info" style="margin-left: 25px; margin-right: 25px; width: auto"><p>The local cache has been cleared.</p><p><button onclick="window.close()" class="btn btn-default">Close window</button></div>');
+		});
+	}
 	process('initialize', null, false, function(ok, result) {
 		if(!ok) {
 			setWorking(false);
