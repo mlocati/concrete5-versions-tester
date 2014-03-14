@@ -45,6 +45,8 @@
 
 <div id="result"></div>
 
+<div id="author" class="label label-default">By <a href="http://www.concrete5.org/profile/-/view/35655/" target="_blank">Michele</a></div>
+
 <div id="dialog-options-versions" class="modal" tabindex="-1">
 	<div class="modal-dialog modal-md">
 		<div class="modal-content">
@@ -54,7 +56,7 @@
 			</div>
 			<div class="modal-body">
 				<h5>View versions (<a href="javascript:void(0)" onclick="$('#options-versions-list input').prop('checked', false);">none</a> | <a href="javascript:void(0)" onclick="$('#options-versions-list input').prop('checked', true);">all</a>)</h5>
-				<ul id="options-versions-list"></ul>
+				<div style="overflow: auto"><ul id="options-versions-list"></ul></div>
 				<h5>Sorting</h5>
 				<ul>
 					<li><div class="radio-inline"><label><input type="radio" name="options-versions-sorting" id="options-versions-asc"> oldest &rarr; newest</label></div></li>

@@ -145,7 +145,7 @@ catch(Exception $x) {
 }
 
 class _C5VT_ {
-	const SCHEMA_VERSION = '2.4.3';
+	const SCHEMA_VERSION = '2.0';
 	const CLASSCATEGORY_HELPER = 'helper';
 	const CLASSCATEGORY_LIBRARY = 'library';
 	const CLASSCATEGORY_MODEL = 'model';
@@ -215,7 +215,7 @@ class _C5VT_ {
 	public static function query($sql, $unbuffered = false) {
 		$rs = self::getConnection()->query($sql, $unbuffered ? MYSQLI_USE_RESULT : MYSQLI_STORE_RESULT);
 		if($rs === false) {
-			throw new Exception('Query failed at line ' . __LINE__ . ":\n" . $sql);
+			throw new Exception('Query failed at line ' . __LINE__ . ":\n" . self::getConnection()->error . "\n\nQuery:\n" . $sql);
 		}
 		return $rs;
 	}
@@ -483,11 +483,6 @@ class _C5VT_ {
 			}
 			$rs->close();
 		}
-		foreach(array_keys($result) as $i) {
-			foreach(array_keys($result[$i]) as $j) {
-					$result[$i][$j]['is3rdParty'] = self::is3rdParty($result[$i][$j]['definitions']);
-			}
-		}
 		return $result;
 	}
 	private static function parseConstants($version) {
@@ -544,9 +539,6 @@ class _C5VT_ {
 			}
 			@$mi->autocommit(true);
 			throw $x;
-		}
-		foreach(array_keys($result) as $j) {
-			$result[$j]['is3rdParty'] = self::is3rdParty($result[$j]['definitions']);
 		}
 		return $result;
 	}
@@ -752,11 +744,6 @@ class _C5VT_ {
 			}
 			$rs->close();
 		}
-		foreach(array_keys($result) as $i) {
-			foreach(array_keys($result[$i]) as $j) {
-				$result[$i][$j]['is3rdParty'] = array_key_exists('file', $result[$i][$j]) ? self::is3rdParty(array($result[$i][$j])) : false;
-			}
-		}
 		return $result;
 	}
 	private static function parseFunctions($version) {
@@ -823,9 +810,6 @@ class _C5VT_ {
 				@$mi->autocommit(true);
 				throw $x;
 			}
-			foreach(array_keys($result) as $j) {
-				$result[$j]['is3rdParty'] = array_key_exists('file', $result[$j]) ? self::is3rdParty(array($result[$j])) : false;
-			}
 			return $result;
 		}
 	}
@@ -870,6 +854,7 @@ class _C5VT_ {
 				$sql = '
 					select * from
 						_C5VT_Class
+						left join _C5VT_ClassDefinition on _C5VT_Class.cId = _C5VT_ClassDefinition.cdClass
 					where
 						(cCategory = ' . _C5VT_::escape($category) . ')
 						and (
@@ -879,25 +864,25 @@ class _C5VT_ {
 		}
 		if(strlen($sql)) {
 			$sql .= ')';
-			$rs = _C5VT_::query($sql);
+			$rs = _C5VT_::query($sql . ' order by cId');
+			$lastId = null;
 			while($row = $rs->fetch_array()) {
-				$d = array('file' => $row['cLine']);
-				if(!empty($row['cLine'])) {
-					$d['line'] = intval($row['cLine']);
+				if($lastId !== $row['cId']) {
+					$lastId = $row['cId'];
+					$d = array('methodsParsed' => empty($row['cMethodsParsed']) ? false : true, 'definitions' => array());
+					if(!empty($row['cFile'])) {
+						$d['file'] = $row['cFile'];
+						if(!empty($row['cLine'])) {
+							$d['line'] = intval($row['cLine']);
+						}
+					}
+					$result[$row['cVersion']][$row['cName']] = $d;
 				}
-				$d['methodsParsed'] = empty($row['cMethodsParsed']) ? false : true;
-				$result[$row['cVersion']][$row['cName']] = $d;
+				if(!empty($row['cdId'])) {
+					$result[$row['cVersion']][$row['cName']]['definitions'][] = array('file' => $row['cdFile'], 'line' => intval($row['cdLine']));
+				}
 			}
 			$rs->close();
-		}
-		switch($category) {
-			case self::CLASSCATEGORY_LIBRARY:
-				foreach(array_keys($result) as $i) {
-					foreach(array_keys($result[$i]) as $j) {
-						$result[$i][$j]['is3rdParty'] = self::is3rdParty(array($result[$i][$j]));
-					}
-				}
-				break;
 		}
 		return $result;
 	}
@@ -913,12 +898,32 @@ class _C5VT_ {
 		}
 		try {
 			foreach($result as $class => $info) {
-				$sql = 'insert into _C5VT_Class set cVersion = ' . self::escape($version) . ', cCategory = ' . self::escape($category) . ', cName = ' . self::escape($class) . ', cFile = ' . self::escape($info['file']);
-				if(array_key_exists('line', $info)) {
-					$sql .= ', cLine = ' . $info['line'];
+				$sql = 'insert into _C5VT_Class set cVersion = ' . self::escape($version) . ', cCategory = ' . self::escape($category) . ', cName = ' . self::escape($class);
+				if(array_key_exists('file', $info)) {
+					$sql .= ', cFile = ' . self::escape($info['file']);
+					if(array_key_exists('line', $info)) {
+						$sql .= ', cLine = ' . $info['line'];
+					}
 				}
 				$sql .= ', cMethodsParsed = 0';
 				self::query($sql);
+				$cId = @is_numeric($mi->insert_id) ? @intval($mi->insert_id) : 0;
+				if($cId <= 0) {
+					throw new Exception('Error saving class');
+				}
+				$sql = '';
+				foreach($info['definitions'] as $definition) {
+					if(strlen($sql) == 0) {
+						$sql = 'insert into _C5VT_ClassDefinition (cdClass, cdFile, cdLine) values ';
+					}
+					else {
+						$sql .= ', ';
+					}
+					$sql .= '(' . self::escape($cId) . ', ' . self::escape($definition['file']) . ', ' . $definition['line'] . ')';
+				}
+				if(strlen($sql)) {
+					self::query($sql);
+				}
 			}
 			self::query('insert into _C5VT_Version (vCode, ' . $doneField . ') values (' . self::escape($version) . ', 1) on duplicate key update ' . $doneField . ' = 1');
 			if(!(@$mi->commit())) {
@@ -933,13 +938,6 @@ class _C5VT_ {
 			}
 			@$mi->autocommit(true);
 			throw $x;
-		}
-		switch($category) {
-			case self::CLASSCATEGORY_LIBRARY:
-				foreach(array_keys($result) as $j) {
-					$result[$j]['is3rdParty'] = self::is3rdParty(array($result[$j]));
-				}
-				break;
 		}
 		return $result;
 	}
@@ -956,9 +954,7 @@ class _C5VT_ {
 				}
 				$itemAbs = $folderAbs . "/$item";
 				if(is_dir($itemAbs)) {
-					if(($category !== self::CLASSCATEGORY_LIBRARY) || ($item !== '3rdparty')) {
-						$subFolders[] = $item;
-					}
+					$subFolders[] = $item;
 				}
 				elseif(preg_match('/.\\.php$/i', $item)) {
 					self::parseClassesAnalyzer($result, $itemAbs, ltrim("$folderRel/$item", '/'));
@@ -1001,14 +997,54 @@ class _C5VT_ {
 					case T_STRING:
 						$classFound = false;
 						$className = $token[1];
-						$result[$className] = array('file' => $fileRel);
+						$line = 0;
 						if(isset($token[2]) && is_numeric($token[2])) {
 							$line = @intval($token[2]);
-							if($line > 0) {
-								$result[$className]['line'] = $line;
+						}
+						$alreadyClassName = false;
+						foreach(array_keys($result) as $c) {
+							if(strcasecmp($c, $className) === 0) {
+								$alreadyClassName = $c;
+								break;
 							}
 						}
-						$result[$className]['methodsParsed'] = false;
+						if(self::is3rdPartyPath($fileRel)) {
+							$definition = array('file' => $fileRel);
+							if($line > 0) {
+								$definition['line'] = $line;
+							}
+						}
+						else {
+							$definition = false;
+						}
+						if($alreadyClassName === false) {
+							$info = array('definitions' => array());
+							if($definition) {
+								$info['definitions'][] = $definition;
+							}
+							else {
+								$info['file'] = $fileRel;
+								if($line > 0) {
+									$info['line'] = $line;
+								}
+							}
+							$info['methodsParsed'] = false;
+							$result[$className] = $info;
+						}
+						else {
+							if($definition) {
+								$result[$alreadyClassName]['definitions'][] = $definition;
+							}
+							else {
+								$result[$alreadyClassName]['file'] = $fileRel;
+								if($line > 0) {
+									$result[$alreadyClassName]['line'] = $line;
+								}
+								else {
+									unset($result[$alreadyClassName]['line']);
+								}
+							}
+						}
 						break;
 					default:
 						throw new Exception('Expected T_STRING token after T_CLASS, found ' . token_name($token[0]) . '!');
@@ -1213,19 +1249,10 @@ class _C5VT_ {
 		}
 		return $result;
 	}
-	private static function is3rdParty($definitions) {
-		$is3rdParty = false;
-		if(is_array($definitions)) {
-			foreach($definitions as $definition) {
-				if(strpos($definition['file'], 'concrete/libraries/3rdparty/') === 0) {
-					$is3rdParty = true;
-				}
-				else {
-					$is3rdParty = false;
-					break;
-				}
-			}
+	private static function is3rdPartyPath($file) {
+		if(strpos($file, 'concrete/libraries/3rdparty/') === 0) {
+			return true;
 		}
-		return $is3rdParty;
+		return false;
 	}
 }

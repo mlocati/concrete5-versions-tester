@@ -82,18 +82,24 @@ body {
 	font-family: Consolas, Courier, "Courier New", monospace;
 	display: block;
 }
-/*
-#result tbody td .modifiers:before, #result tbody td .parameters:before {
-	font-weight: bold;
-	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+#author {
+	display: none;
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	font-weight: normal;
+	padding-top: 4px;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	border-bottom-left-radius: 0;
+	opacity: .8;
 }
-#result tbody td .modifiers:before {
-	content: "Modifiers: ";
+#author a {
+	color: yellow;
 }
-#result tbody td .parameters:before {
-	content: "Parameters: ";
+@media (min-width: 768px) {
+	#author {
+		display: block;
+	}
 }
-#result tbody th .loader-info {
-	font-family: Consolas, Courier, "Courier New", monospace;
-}
-*/

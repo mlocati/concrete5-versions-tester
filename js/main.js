@@ -81,6 +81,24 @@ function emptyArrayToEmptyObject(item) {
 	return ($.isArray(item) && (item.length === 0)) ? {} : item;
 }
 
+function is3rdParty(definitions) {
+	var path = 'concrete/libraries/3rdparty/';
+	if(typeof(definitions) === 'string') {
+		return definitions.indexOf(path) ? false : true;
+	}
+	var r = false;
+	if(definitions) {
+		$.each(definitions, function() {
+			if(this.file.indexOf(path)) {
+				r = false;
+				return false;
+			}
+			r = true;
+		});
+	}
+	return r;
+}
+
 function Version(code, data) {
 	this.code = code;
 	for(var k in data) {
@@ -119,8 +137,8 @@ Version.compare = function(version1, version2) {
 	}
 	var chunks1 = getChunks(version1), chunks2 = getChunks(version2), maxChunks = Math.max(chunks1.length, chunks2.length), chunkIndex, chunk1, chunk2, cmp = 0;
 	for(chunkIndex = 0; chunkIndex < maxChunks; chunkIndex++) {
-		chunk1 = (chunks1.length >= chunkIndex) ? chunks1[chunkIndex] : 0;
-		chunk2 = (chunks2.length >= chunkIndex) ? chunks2[chunkIndex] : 0;
+		chunk1 = (chunks1.length > chunkIndex) ? chunks1[chunkIndex] : 0;
+		chunk2 = (chunks2.length > chunkIndex) ? chunks2[chunkIndex] : 0;
 		if(chunk1 === chunk2) {
 			continue;
 		}
@@ -181,7 +199,7 @@ function Type(data) {
 Type.all = [];
 Type.prototype = {
 	activate: function() {
-		var me = this;
+		var me = this, $tmp, $hideOnMethods = null;
 		$('#options .panel-body .type-specific').remove();
 		switch(me.handle) {
 			case 'helpers':
@@ -190,7 +208,7 @@ Type.prototype = {
 				$('#options .panel-body').append(me.$showClassesRow = $('<div class="row type-specific" />')
 					.append('<div class="col-md-2"><label>List</label></div>')
 					.append($('<div class="col-md-6" />')
-						.append($('<div class="radio"><label><input type="radio" name="show-methods" value=""' + (me.showMethods ? '' : ' checked') + '> show all classes</label></div>'))
+						.append($tmp = $('<div class="radio"><label><input type="radio" name="show-methods" value=""' + (me.showMethods ? '' : ' checked') + '> show all classes</label></div>'))
 						.append($('<div class="radio" />')
 							.append($('<label><input type="radio" name="show-methods" value="1"' + (me.showMethods ? ' checked' : '') + '> show methods of </label>')
 								.append($('<span />')
@@ -205,9 +223,22 @@ Type.prototype = {
 						)
 					)
 				);
+				if(me.handle === 'libraries') {
+					$tmp.append($hideOnMethods = $('<label class="checkbox-inline">include 3rd party libraries</label>')
+						.prepend($('<input type="checkbox" ' + (me.show3rdParty ? 'checked' : '') + ' style="float: none; margin-left: 0; margin-right: 10px" />')
+							.on('click', function() {
+								me.show3rdParty = this.checked;
+								me.view();
+							})
+						)
+					);
+				}
 				me.$classes.chosen({width: '400px', placeholder_text: 'select a ' + me.name1});
 				var upd = function(view) {
 					me.showMethods = me.$showClassesRow.find('input[name="show-methods"]:checked').val() ? true : false;
+					if($hideOnMethods) {
+						$hideOnMethods.css('visibility', me.showMethods ? 'hidden' : '');
+					}
 					me.$classes.closest('span').css('visibility', me.showMethods ? '' : 'hidden');
 					if(view) {
 						me.view();
@@ -224,7 +255,6 @@ Type.prototype = {
 		switch(me.handle) {
 			case 'constants':
 			case 'functions':
-			case 'libraries':
 				$('#options .panel-body').append($('<div class="row type-specific" />')
 					.append('<div class="col-md-2"><label>3<sup>rd</sup> party</label></div>')
 					.append($('<div class="col-md-6" />')
@@ -232,7 +262,6 @@ Type.prototype = {
 							.prepend($('<input type="checkbox" ' + (me.show3rdParty ? 'checked' : '') + ' />')
 								.on('click', function() {
 									me.show3rdParty = this.checked;
-									me.updateOptionsState();
 									me.view();
 								})
 							)
@@ -267,11 +296,14 @@ Type.prototype = {
 		if(this.$showClassesRow) {
 			var done = {}, list = [];
 			$.each(Version.getVisible(), function() {
-				for(var c in storage.get(me.handle + '@' + this.code)) {
+				var classes = storage.get(me.handle + '@' + this.code), c;
+				for(c in classes) {
 					var clc = c.toLowerCase();
 					if(!(clc in done)) {
-						done[clc] = true;
-						list.push(c);
+						if(!classes[c].is3rdParty) {
+							done[clc] = true;
+							list.push(c);
+						}
 					}
 				}
 			});
@@ -423,7 +455,8 @@ Type.prototype = {
 							return;
 						}
 						for(var version in result) {
-							storage.set(me.handle + '::' + classNameLC + '@' + version, emptyArrayToEmptyObject(result[version]));
+							result[version] = emptyArrayToEmptyObject(result[version]);
+							storage.set(me.handle + '::' + classNameLC + '@' + version, result[version]);
 						}
 						loadNext(loadIndex + 1, dataReady);
 					});
@@ -436,7 +469,8 @@ Type.prototype = {
 							alert(result);
 							return;
 						}
-						storage.set(me.handle + '::' + classNameLC + '@' + load.data.version, emptyArrayToEmptyObject(result));
+						result = emptyArrayToEmptyObject(result);
+						storage.set(me.handle + '::' + classNameLC + '@' + load.data.version, result);
 						var classList = storage.get(me.handle + '@' + load.data.version);
 						for(var cn in classList) {
 							if(cn.toLowerCase() === classNameLC) {
@@ -452,7 +486,7 @@ Type.prototype = {
 		}
 		loadNext(0, function() {
 			setWorking(false);
-			var methods, classInfo = [], structured = {}; 
+			var methods, classInfo = [], structured = {};
 			$.each(versions, function(vi) {
 				var classList = storage.get(me.handle + '@' + this.code), name, nameLC;
 				for(var cn in classList) {
@@ -598,8 +632,22 @@ Type.prototype = {
 			$tb.append($tr = $('<tr />')
 				.append($td = $('<th />'))
 			);
-			var $parent;
+			var $parent, enableMethods = false;
 			if(methodsShower) {
+				enableMethods = true;
+				switch(me.handle) {
+					case 'libraries':
+						enableMethods = false;
+						for(vi = 0; vi < versions.length; vi++) {
+							if(flat.v[vi] && !flat.v[vi].is3rdParty) {
+								enableMethods = true;
+								break;
+							}
+						}
+						break;
+				}
+			}
+			if(enableMethods) {
 				$td.append($parent = $('<a href="javascript:void(0)" />')
 					.on('click', function() {
 						methodsShower(flat.name);
@@ -727,7 +775,7 @@ $(window.document).ready(function() {
 		});
 		$('#quit').on('click', function() {
 			storage.clearPermanentData();
-			$(document.body).empty().html('<div class="alert alert-info" style="margin-left: 25px; margin-right: 25px; width: auto"><p>The local cache has been cleared.</p><p><button onclick="window.close()" class="btn btn-default">Close window</button></div>');
+			$(document.body).empty().html('<div class="alert alert-info" style="margin-left: 25px; margin-right: 25px; width: auto"><p>The local cache has been cleared.</p><p><button onclick="window.location.reload()" class="btn btn-default">Restart</button> <button onclick="window.close()" class="btn btn-default">Close window</button></div>');
 		});
 	}
 	process('initialize', null, false, function(ok, result) {
@@ -776,6 +824,30 @@ $(window.document).ready(function() {
 			$.each(loadToBeParsed, function(_, version) {
 				loads.push({type: 'toBeParsed', data: {version: version}});
 			});
+			var thirdPartyParser = null;
+			switch(type.handle) {
+				case 'constants':
+					thirdPartyParser = function(list) {
+						for(var k in list) {
+							list[k].is3rdParty = is3rdParty(list[k].definitions);
+						}
+					};
+					break;
+				case 'functions':
+					thirdPartyParser = function(list) {
+						for(var k in list) {
+							list[k].is3rdParty = is3rdParty(list[k].file);
+						}
+					};
+					break;
+				case 'libraries':
+					thirdPartyParser = function(list) {
+						for(var k in list) {
+							list[k].is3rdParty = list[k].file ? false : true;
+						}
+					};
+					break;
+			}
 			function loadNext(loadIndex) {
 				if(loadIndex >= loads.length) {
 					processNextType(typeIndex + 1, cb);
@@ -800,7 +872,11 @@ $(window.document).ready(function() {
 								return;
 							}
 							for(var version in result) {
-								storage.set(type.handle + '@' + version, emptyArrayToEmptyObject(result[version]));
+								result[version] = emptyArrayToEmptyObject(result[version]);
+								if(thirdPartyParser) {
+									thirdPartyParser(result[version]);
+								}
+								storage.set(type.handle + '@' + version, result[version]);
 							}
 							loadNext(loadIndex + 1);
 						});
@@ -820,7 +896,11 @@ $(window.document).ready(function() {
 								alert(result);
 								return;
 							}
-							storage.set(type.handle + '@' + load.data.version, emptyArrayToEmptyObject(result));
+							result = emptyArrayToEmptyObject(result);
+							if(thirdPartyParser) {
+								thirdPartyParser(result);
+							}
+							storage.set(type.handle + '@' + load.data.version, result);
 							loadNext(loadIndex + 1);
 						});
 						break;
@@ -829,11 +909,18 @@ $(window.document).ready(function() {
 			loadNext(0);
 		}
 		processNextType(0, function() {
+			var updateMaxHeight = function() {
+				$('#options-versions-list').closest('div').css('max-height', Math.max(100, $(window).height() - 400) + 'px', 'overflow', 'auto');
+			};
 			$('#dialog-options-versions').on('show.bs.modal', function() {
 				$.each(Version.all, function() {
 					this.$shown.prop('checked', !this.hidden);
 				});
 				$(storage.get('versions::order-descending') ? '#options-versions-desc' : '#options-versions-asc').prop('checked', true);
+				updateMaxHeight();
+			});
+			$(window).on('resize', function() {
+				updateMaxHeight();
 			});
 			$('#options-versions-apply').on('click', function() {
 				$.each(Version.all, function() {

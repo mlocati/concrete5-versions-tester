@@ -17,13 +17,26 @@ CREATE TABLE _C5VT_Class (
   cVersion varchar(15) NOT NULL COMMENT 'Version for which the class is valid',
   cCategory enum('helper','library','model') NOT NULL COMMENT 'Class category',
   cName varchar(255) NOT NULL COMMENT 'Class name',
-  cFile varchar(300) NOT NULL COMMENT 'Name of the file where the class is defined',
+  cFile varchar(300) DEFAULT NULL COMMENT 'Name of the file where the class is defined (if and only if is not a 3rd party library)',
   cLine int(10) unsigned DEFAULT NULL COMMENT 'Starting line number where the class is defined (null if and only if we were not able to retrieve it)',
   cMethodsParsed tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT 'Class methods have been parsed?',
   PRIMARY KEY (cId),
   UNIQUE KEY cVersion_cCategory_cName (cVersion,cCategory,cName),
   CONSTRAINT FK__C5VT_Class__C5VT_Version FOREIGN KEY (cVersion) REFERENCES _C5VT_Version (vCode) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='List of classes for each concrete5 version';
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS _C5VT_ClassDefinition;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE _C5VT_ClassDefinition (
+  cdId int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'Record identifier',
+  cdClass int(10) unsigned NOT NULL COMMENT 'Class parent record',
+  cdFile varchar(300) NOT NULL COMMENT 'Name of the file where the class is defined (only for 3rd party libraries)',
+  cdLine int(10) unsigned NOT NULL COMMENT 'Line number',
+  PRIMARY KEY (cdId),
+  KEY FK__C5VT_ClassDefinition__C5VT_Class (cdClass),
+  CONSTRAINT FK__C5VT_ClassDefinition__C5VT_Class FOREIGN KEY (cdClass) REFERENCES _C5VT_Class (cId) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Places where classess are defined';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS _C5VT_Constant;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
