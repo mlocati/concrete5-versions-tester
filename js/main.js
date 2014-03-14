@@ -594,10 +594,10 @@ Type.prototype = {
 								break;
 						}
 					}
-					$tr.append($td = $('<td class="is-available">&#x2713;</td>'));
+					$tr.append($('<td class="is-available">&#x2713;</td>'));
 				}
 				else {
-					$tr.append($td = $('<td class="not-available">&#x2717;</td>'));
+					$tr.append($('<td class="not-available">&#x2717;</td>'));
 				}
 			}
 		}
