@@ -32,7 +32,11 @@ try {
 			$rs->close();
 			foreach(array_keys($result['versions']) as $existing) {
 				if(!in_array($existing, $versionsInDB)) {
-					_C5VT_::query('insert into _C5VT_Version set vCode = ' . _C5VT_::escape($existing));
+					$sql = 'insert into _C5VT_Version set vCode = ' . _C5VT_::escape($existing);
+					if(version_compare($existing, '5.4.2') >= 0) {
+						$sql = ', vCodeBaseUrl = ' . _C5VT_::escape("https://github.com/concrete5/concrete5/tree/$existing/web");
+					}
+					_C5VT_::query($sql);
 				}
 			}
 			$rs = _C5VT_::query('select * from _C5VT_Version');
