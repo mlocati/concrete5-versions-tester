@@ -109,6 +109,24 @@
 	</div>
 </div>
 
+<script>
+window.onerror = function(message, file, line) {
+	var s;
+	if(message && message.length) {
+		s = message;
+	}
+	else {
+		s = 'Uncaught error';
+	}
+	if(file && file.length) {
+		s += '\n\nFile: ' + file.replace(/\?v=\d+$/, '');
+		if(line) {
+			s += ' @ ' + line;
+		}
+	}
+	alert(s);
+};
+</script>
 <script src="js/jquery.min.js"></script>
 <script src="js/bootstrap.min.js"></script>
 <script src="js/chosen.jquery.min.js"></script>
