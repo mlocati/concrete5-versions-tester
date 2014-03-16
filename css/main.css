@@ -82,11 +82,11 @@ body {
 	font-family: Consolas, Courier, "Courier New", monospace;
 	display: block;
 }
-#result tbody td.is-available .definitions {
+#result tbody td.is-available .definitions, #result tbody td.method-flavor .definitions {
 	display: none;
 	position: absolute;
 }
-#result tbody td.is-available:hover .definitions {
+#result tbody td.is-available:hover .definitions, #result tbody td.method-flavor:hover .definitions {
 	display: inline;
 }
 #definitions-code {

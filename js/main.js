@@ -1,4 +1,5 @@
-(function(undefined) {
+/*jshint -W031,-W089 */
+(function(window, $, undefined) {
 "use strict";
 var codeMirrorReady = false;
 
@@ -8,36 +9,60 @@ var storage = (function() {
 		setSchema: function(schema) {
 			if(ls && (ls.getItem('schema') !== schema)) {
 				ls.clear();
-				ls.setItem('schema', schema);
+				try {
+					ls.setItem('schema', schema);
+				}
+				catch(e) {
+				}
 			}
+			local = {};
 		},
 		has: function(key) {
-			if(ls) {
-				return (ls.getItem(key) !== null);
+			if(key in local) {
+				return true;
 			}
-			else {
-				return (key in local);
+			if(ls && (ls.getItem(key) !== null)) {
+				return true;
 			}
+			return false;
 		},
 		get: function(key) {
-			var v = (ls ? ls.getItem(key) : local[key]);
-			if(typeof(v) != 'string') {
+			if(key in local) {
+				return local[key];
+			}
+			var v = ls ? ls.getItem(key) : null;
+			if(typeof(v) !== 'string') {
 				return null;
 			}
-			return ls ? JSON.parse(v) : v;
+			return JSON.parse(v);
 		},
 		set: function(key, value) {
 			if((value === null) || (value === undefined)) {
-				if(ls) {
-					ls.removeItem(key);
-				}
-				else {
+				if(key in local) {
 					delete local[key];
+				}
+				if(ls) {
+					try {
+						ls.removeItem(key);
+					}
+					catch(e) {
+					}
 				}
 			}
 			else {
+				var permanentlySet = false;
 				if(ls) {
-					ls.setItem(key, JSON.stringify(value));
+					try {
+						ls.setItem(key, JSON.stringify(value));
+						permanentlySet = true;
+					}
+					catch(e) {
+					}
+				}
+				if(permanentlySet) {
+					if(key in local) {
+						delete local[key];
+					}
 				}
 				else {
 					local[key] = value;
@@ -45,12 +70,15 @@ var storage = (function() {
 			}
 		},
 		isPermanent: ls ? true : false,
-		getPermanentSize: function() {
+		getPermanentSize: function(format) {
 			var size = 0;
 			if(ls) {
 				for(var key in ls) {
-					size += key.length + (ls[key] ? ls[key].length : 0);
+					size += (key.length + (ls[key] ? ls[key].length : 0)) * 2;
 				}
+			}
+			if(!format) {
+				return size;
 			}
 			if(size === 0) {
 				return '0 bytes';
@@ -99,26 +127,26 @@ function is3rdParty(definitions) {
 	return r;
 }
 
-function setDefinitions($td, version, info) {
+function setDefinitions($td, definitionsList) {
 	$td.append($('<a href="javascript:void(0)" class="definitions" title="Show definition"><img src="images/source-code.png" alt="code"></a>')
 		.on('click', function() {
-			showDefinitions(version, info);
+			showDefinitions(definitionsList);
 		})
 	);
 }
-function showDefinitions(version, info) {
+function showDefinitions(definitionsList) {
 	var items = [], loads = [];
-	function getItem(i) {
-		if(!(i && i.file)) {
+	function getItem(version, info) {
+		if(!(info && info.file)) {
 			return;
 		}
-		var item = {file: i.file};
-		if(i.line) {
-			item.lineStart = i.line;
+		var item = {version: version, file: info.file};
+		if(info.line) {
+			item.lineStart = info.line;
 		}
-		else if(i.lineStart && i.lineEnd) {
-			item.lineStart = i.lineStart;
-			item.lineEnd = i.lineEnd;
+		else if(info.lineStart && info.lineEnd) {
+			item.lineStart = info.lineStart;
+			item.lineEnd = info.lineEnd;
 		}
 		var content = storage.get('source::' + item.file + '@' + version.code);
 		if(content === null) {
@@ -129,12 +157,15 @@ function showDefinitions(version, info) {
 		}
 		items.push(item);
 	}
-	getItem(info);
-	if($.isArray(info.definitions)) {
-		$.each(info.definitions, function() {
-			getItem(this);
-		});
-	}
+	$.each(definitionsList, function() {
+		var version = this.version;
+		getItem(version, this.info);
+		if($.isArray(this.info.definitions)) {
+			$.each(this.info.definitions, function() {
+				getItem(version, this);
+			});
+		}
+	});
 	if(!items.length) {
 		alert('Definitions not available');
 		return;
@@ -145,14 +176,14 @@ function showDefinitions(version, info) {
 			return;
 		}
 		var item = items[loads[loadIndex]];
-		setWorking('Loading source code of ' + item.file + ' for version ' + version.code);
-		process('get-source', {version: version.code, file: item.file}, false, function(ok, result) {
+		setWorking('Loading source code of ' + item.file + ' for version ' + item.version.code);
+		process('get-source', {version: item.version.code, file: item.file}, false, function(ok, result) {
 			if(!ok) {
 				setWorking(false);
 				alert(result);
 				return;
 			}
-			storage.set('source::' + item.file + '@' + version.code, result);
+			storage.set('source::' + item.file + '@' + item.version.code, result);
 			item.content = result;
 			loadNext(loadIndex + 1, cb);
 		});
@@ -162,7 +193,6 @@ function showDefinitions(version, info) {
 		var $s = $('#definitions-which');
 		$s.empty();
 		$.each(items, function() {
-			this.version = version;
 			var name = this.file;
 			if(this.lineStart) {
 				name += '@' + this.lineStart;
@@ -170,6 +200,7 @@ function showDefinitions(version, info) {
 					name += '-' + this.lineEnd;
 				}
 			}
+			name += ' for version ' + this.version.code;
 			$s.append($('<option />')
 				.text(name)
 				.data('item', this)
@@ -179,6 +210,7 @@ function showDefinitions(version, info) {
 	});
 }
 
+/** @constructor */
 function Version(code, data) {
 	this.code = code;
 	for(var k in data) {
@@ -251,6 +283,7 @@ Version.getVisible = function() {
 	return l;
 };
 
+/** @constructor */
 function Type(data) {
 	var me = this;
 	for(var k in data) {
@@ -675,7 +708,7 @@ Type.prototype = {
 						}
 					}
 					$tr.append($td = $('<td class="is-available">&#x2713;</td>'));
-					setDefinitions($td, versions[vi], classInfo[vi]);
+					setDefinitions($td, [{version: versions[vi], info: classInfo[vi]}]);
 				}
 				else {
 					$tr.append('<td class="not-available">&#x2717;</td>');
@@ -765,6 +798,7 @@ Type.prototype = {
 						}
 						else {
 							$tr.append($td = $('<td class="method-flavor" />'));
+							previousSpecial = {$td: $td, info: info, definitions: []};
 							if(differences.modifiers && info.modifiers.length) {
 								$td
 									.append('<span class="label label-default">Modifiers</span>')
@@ -779,12 +813,13 @@ Type.prototype = {
 									.append('<br>')
 								;
 							}
-							previousSpecial = {$td: $td, info: info};
 						}
+						previousSpecial.definitions.push({version: versions[vi], info: info});
+						setDefinitions($td, previousSpecial.definitions);
 					}
 					else {
 						$tr.append($td = $('<td class="is-available">&#x2713;</td>'));
-						setDefinitions($td, versions[vi], info);
+						setDefinitions($td, [{version: versions[vi], info: info}]);
 					}
 				}
 				else {
@@ -868,11 +903,11 @@ $(window.document).ready(function() {
 		}
 		var obj;
 		if(loadSubs[subIndex].js) {
-			obj = document.createElement('script');
+			obj = window.document.createElement('script');
 			obj.src = loadSubs[subIndex].js;
 		}
 		else if(loadSubs[subIndex].css) {
-			obj = document.createElement('link');
+			obj = window.document.createElement('link');
 			obj.rel = 'stylesheet';
 			obj.href = loadSubs[subIndex].css;
 		}
@@ -880,20 +915,10 @@ $(window.document).ready(function() {
 		obj.onload = function() {
 			loadNextSub(subIndex + 1);
 		};
-		var oneScript = document.getElementsByTagName('script')[0];
+		var oneScript = window.document.getElementsByTagName('script')[0];
 		oneScript.parentNode.insertBefore(obj, oneScript);
 	}
 	loadNextSub(0);
-	if(storage.isPermanent) {
-		$('#top-menu ul').append('<li><a href="#" data-toggle="modal" data-target="#dialog-quit">Quit</a></li>');
-		$('#dialog-quit').on('show.bs.modal', function() {
-			$('#quit-ls-size').text(storage.getPermanentSize());
-		});
-		$('#quit').on('click', function() {
-			storage.clearPermanentData();
-			$(document.body).empty().html('<div class="alert alert-info" style="margin-left: 25px; margin-right: 25px; width: auto"><p>The local cache has been cleared.</p><p><button onclick="window.location.reload()" class="btn btn-default">Restart</button> <button onclick="window.close()" class="btn btn-default">Close window</button></div>');
-		});
-	}
 	process('initialize', null, false, function(ok, result) {
 		if(!ok) {
 			setWorking(false);
@@ -969,7 +994,7 @@ $(window.document).ready(function() {
 					processNextType(typeIndex + 1, cb);
 					return;
 				}
-				var load = loads[loadIndex];
+				var load = loads[loadIndex], action;
 				switch(load.type) {
 					case 'parsed':
 						setWorking('Loading pre-parsed ' + type.nameN + ' for versions<br>' + load.data.versions.join(', '));
@@ -1034,6 +1059,16 @@ $(window.document).ready(function() {
 				$(storage.get('versions::order-descending') ? '#options-versions-desc' : '#options-versions-asc').prop('checked', true);
 				updateMaxHeight();
 			});
+			if(storage.isPermanent && (storage.getPermanentSize() > 0)) {
+				$('#top-menu ul').append('<li><a href="#" data-toggle="modal" data-target="#dialog-quit">Quit</a></li>');
+				$('#dialog-quit').on('show.bs.modal', function() {
+					$('#quit-ls-size').text(storage.getPermanentSize(true));
+				});
+				$('#quit').on('click', function() {
+					storage.clearPermanentData();
+					$(window.document.body).empty().html('<div class="alert alert-info" style="margin-left: 25px; margin-right: 25px; width: auto"><p>The local cache has been cleared.</p><p><button onclick="window.location.reload()" class="btn btn-default">Restart</button> <button onclick="window.close()" class="btn btn-default">Close window</button></div>');
+				});
+			}
 			$('#dialog-definitions').on('show.bs.modal', function() {
 				$('#definitions-code').empty();
 				$('#definitions-github').hide();
@@ -1105,4 +1140,4 @@ $(window.document).ready(function() {
 	});
 });
 
-})();
+})(window, jQuery);
