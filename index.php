@@ -3,6 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<title>concrete5 versions tester</title>
+	<meta name="description" content="Compare helpers, libraries, models, methods, functions and constants of all the concrete5 versions">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="css/bootstrap.min.css">
