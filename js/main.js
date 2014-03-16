@@ -1083,8 +1083,11 @@ $(window.document).ready(function() {
 				if(!item) {
 					return;
 				}
-				var $ta;
-				$('#definitions-code').append($ta = $('<textarea />').val(item.content));
+				var $ta, h = Math.min(Math.max($(window).height() - 300, 200), 2000);
+				$('#definitions-code').append($ta = $('<textarea />')
+					.css('height', h + 'px')
+					.val(item.content)
+				);
 				if(codeMirrorReady) {
 					var cm = CodeMirror.fromTextArea(
 						$ta[0],
@@ -1098,6 +1101,7 @@ $(window.document).ready(function() {
 							autofocus: true
 						}
 					);
+					cm.setSize('100%', h);
 					if(item.lineStart) {
 						var le = item.lineEnd || item.lineStart;
 						for(var l = item.lineStart; l <= le; l++) {

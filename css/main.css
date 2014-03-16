@@ -94,7 +94,6 @@ body {
 }
 #definitions-code textarea {
 	width: 100%;
-	height: 400px;
 	-moz-box-sizing: border-box;
 	-webkit-box-sizing: border-box;
 	box-sizing: border-box;
