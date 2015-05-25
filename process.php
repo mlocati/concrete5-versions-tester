@@ -218,6 +218,9 @@ class _C5VT_ {
 	private static function getConnection() {
 		static $result;
 		if(!isset($result)) {
+			if (!class_exists('mysqli', false)) {
+				throw new Exception('PHP extension missing: mysqli');
+			}
 			$mi = @new mysqli(_C5VT_DB_SERVER, _C5VT_DB_USERNAME, _C5VT_DB_PASSWORD, _C5VT_DB_DATABASE);
 			if($mi->connect_errno) {
 				throw new Exception('DB connection failed: ' . $mi->connect_error);
