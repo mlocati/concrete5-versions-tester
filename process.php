@@ -34,7 +34,7 @@ try {
 				if(!in_array($existing, $versionsInDB)) {
 					$sql = 'insert into _C5VT_Version set vCode = ' . _C5VT_::escape($existing);
 					if(version_compare($existing, '5.4.2') >= 0) {
-						$sql .= ', vCodeBaseUrl = ' . _C5VT_::escape("https://github.com/concrete5/concrete5/tree/$existing/web");
+						$sql .= ', vCodeBaseUrl = ' . _C5VT_::escape("https://github.com/concrete5/concrete5-legacy/tree/$existing/web");
 					}
 					_C5VT_::query($sql);
 				}
