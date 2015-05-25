@@ -260,6 +260,7 @@ class _C5VT_ {
 		if(!$dispatcher) {
 			throw new Exception("Invalid version: '$version'");
 		}
+		define('SITE_LOCALE', 'en_US');
 		define('DIR_BASE', realpath(_C5VT_VERSIONS_FOLDER . "/$version"));
 		define('CONFIG_FILE', realpath(dirname(__FILE__) . '/includes/configuration.runtime.php'));
 		define('C5_ENVIRONMENT_ONLY', true);
@@ -883,7 +884,7 @@ class _C5VT_ {
 			return $result;
 		}
 		if(!in_array($versions, _C5VT_::getVersions())) {
-			throw new Exception("Invalid version: '$version'");
+			throw new Exception("Invalid version: '$versions'");
 		}
 		$field = _C5VT_::getClassCategoryDonefieldName($category);
 		$rs = _C5VT_::query('select vCode from _C5VT_Version where ' . $field . ' = 1 and vCode = ' . self::escape($versions));
