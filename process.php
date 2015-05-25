@@ -616,28 +616,60 @@ class _C5VT_ {
 					case T_STRING:
 						$text = strtolower($tokens[$i][1]);
 						switch($text) {
+							case 'defined':
+								$line = $tokens[$i][2];
+								$j = $i + 1;
+								// Skip whitespaces
+								while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+									$j++;
+								}
+								if(($j < $n) && ($tokens[$j] === '(')) {
+									$j++;
+									// Skip whitespaces
+									while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+										$j++;
+									}
+									if (($j < $n) && is_array($tokens[$j]) && ($tokens[$j][0] === T_CONSTANT_ENCAPSED_STRING)) {
+										$name = eval('return '.$tokens[$j][1] .';');
+										if (is_string($name) && ($name !== '')) {
+											$j++;
+											// Skip whitespaces
+											while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
+												$j++;
+											}
+											if(($j < $n) && ($tokens[$j] === ')')) {
+												$i = $j + 1;
+												if( !array_key_exists($name, $found)) {
+													$found[$name] = array();
+												}
+												$found[$name][] = array('file' => $fileRel, 'line' => $line);
+											}
+										}
+									}
+								}
+								break;
 							case 'define':
 								if(($i == 0) || ( !is_array($tokens[$i - 1])) || ($tokens[$i - 1][0] != T_OBJECT_OPERATOR)) {
 									$line = $tokens[$i][2];
 									$j = $i + 1;
 									// Skip whitespaces
 									while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
-										$j++ ;
+										$j++;
 									}
 									// Open parenthesis?
 									if(($j < $n) && ($tokens[$j] === '(')) {
-										$j++ ;
+										$j++;
 										// Skip whitespaces
 										while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
-											$j++ ;
+											$j++;
 										}
 										// Constant string?
 										if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/^["\']\w+["\']$/', $tokens[$j][1])) {
 											$name = substr($tokens[$j][1], 1, -1);
-											$j++ ;
+											$j++;
 											// Skip whitespaces
 											while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
-												$j++ ;
+												$j++;
 											}
 											$add = false;
 											// Comma?
@@ -661,22 +693,22 @@ class _C5VT_ {
 									$j = $i + 3;
 									// Skip whitespaces
 									while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
-										$j++ ;
+										$j++;
 									}
 									// Open parenthesis?
 									if(($j < $n) && ($tokens[$j] === '(')) {
-										$j++ ;
+										$j++;
 										// Skip whitespaces
 										while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
-											$j++ ;
+											$j++;
 										}
 										// Constant string?
 										if(($j < $n) && (is_array($tokens[$j])) && ($tokens[$j][0] == T_CONSTANT_ENCAPSED_STRING) && preg_match('/^["\']\w+["\']$/', $tokens[$j][1])) {
 											$name = substr($tokens[$j][1], 1, -1);
-											$j++ ;
+											$j++;
 											// Skip whitespaces
 											while(($j < $n) && is_array($tokens[$j] && ($tokens[$j][0] == T_WHITESPACE))) {
-												$j++ ;
+												$j++;
 											}
 											// Comma?
 											if(($j < $n) && ($tokens[$j] === ',')) {
